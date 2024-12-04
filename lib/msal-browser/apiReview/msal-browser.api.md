@@ -564,7 +564,7 @@ export class BrowserPerformanceMeasurement implements IPerformanceMeasurement {
 // Warning: (ae-forgotten-export) The symbol "IWindowStorage" needs to be exported by the entry point index.d.ts
 // Warning: (ae-missing-release-tag) "BrowserStorage" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
-// @public (undocumented)
+// @public @deprecated (undocumented)
 export class BrowserStorage implements IWindowStorage<string> {
     constructor(cacheLocation: string);
     // (undocumented)
@@ -1166,6 +1166,23 @@ export type LoadTokenOptions = {
     extendedExpiresOn?: number;
 };
 
+// Warning: (ae-missing-release-tag) "LocalStorage" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+export class LocalStorage implements IWindowStorage<string> {
+    constructor();
+    // (undocumented)
+    containsKey(key: string): boolean;
+    // (undocumented)
+    getItem(key: string): string | null;
+    // (undocumented)
+    getKeys(): string[];
+    // (undocumented)
+    removeItem(key: string): void;
+    // (undocumented)
+    setItem(key: string, value: string): void;
+}
+
 export { Logger }
 
 export { LogLevel }
@@ -1578,6 +1595,23 @@ function replaceHash(url: string): void;
 export { ServerError }
 
 export { ServerResponseType }
+
+// Warning: (ae-missing-release-tag) "SessionStorage" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
+// @public (undocumented)
+export class SessionStorage implements IWindowStorage<string> {
+    constructor();
+    // (undocumented)
+    containsKey(key: string): boolean;
+    // (undocumented)
+    getItem(key: string): string | null;
+    // (undocumented)
+    getKeys(): string[];
+    // (undocumented)
+    removeItem(key: string): void;
+    // (undocumented)
+    setItem(key: string, value: string): void;
+}
 
 // Warning: (ae-missing-release-tag) "SignedHttpRequest" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
 //
