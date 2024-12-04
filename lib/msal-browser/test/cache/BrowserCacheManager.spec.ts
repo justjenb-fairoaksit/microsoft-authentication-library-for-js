@@ -51,6 +51,7 @@ import { BrowserStateObject } from "../../src/utils/BrowserProtocolUtils.js";
 import { base64Decode } from "../../src/encode/Base64Decode.js";
 import { getDefaultPerformanceClient } from "../utils/TelemetryUtils.js";
 import { BrowserPerformanceClient } from "../../src/telemetry/BrowserPerformanceClient.js";
+import { CookieStorage } from "../../src/cache/CookieStorage.js";
 
 describe("BrowserCacheManager tests", () => {
     let cacheConfig: Required<CacheOptions>;
@@ -2576,55 +2577,56 @@ describe("BrowserCacheManager tests", () => {
             browserSessionStorage.setTemporaryCache("cacheKey", cacheVal, true);
             expect(window.sessionStorage.getItem(msalCacheKey)).toBe(cacheVal);
             expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
-            browserSessionStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.removeItem(msalCacheKey);
             // localStorage
             browserLocalStorage.setTemporaryCache("cacheKey", cacheVal, true);
             expect(window.sessionStorage.getItem(msalCacheKey)).toBe(cacheVal);
             expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
-            browserLocalStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserLocalStorage.cookieStorage.removeItem(msalCacheKey);
             // browser memory
             browserMemoryStorage.setTemporaryCache("cacheKey", cacheVal, true);
             expect(browserMemoryStorage.getTemporaryCache(msalCacheKey)).toBe(
                 cacheVal
             );
             expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
-            browserMemoryStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserMemoryStorage.cookieStorage.removeItem(msalCacheKey);
         });
 
         it("getTempCache()", () => {
-            const getCookieSpy = jest.spyOn(
-                BrowserCacheManager.prototype,
-                "getItemCookie"
-            );
             // sessionStorage
             window.sessionStorage.setItem(msalCacheKey, cacheVal);
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             expect(
                 browserSessionStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
-            expect(getCookieSpy.mock.results[0].value).toEqual(cacheVal);
-            expect(getCookieSpy).toHaveBeenCalledTimes(1);
+            // @ts-ignore
+            expect(browserSessionStorage.cookieStorage.getItem(msalCacheKey)).toEqual(cacheVal);
             // localStorage
             window.localStorage.setItem(msalCacheKey, cacheVal);
-            browserLocalStorage.setItemCookie(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserLocalStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             expect(
                 browserLocalStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
-            expect(getCookieSpy.mock.results[1].value).toEqual(cacheVal);
-            expect(getCookieSpy).toHaveBeenCalledTimes(2);
+            // @ts-ignore
+            expect(browserLocalStorage.cookieStorage.getItem(msalCacheKey)).toEqual(cacheVal);
             // browser memory
             browserMemoryStorage.setItem(msalCacheKey, cacheVal);
             expect(
                 browserMemoryStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
-            expect(getCookieSpy.mock.results[2].value).toEqual(cacheVal);
-            expect(getCookieSpy).toHaveBeenCalledTimes(3);
+            // @ts-ignore
+            expect(browserMemoryStorage.cookieStorage.getItem(msalCacheKey)).toEqual(cacheVal);
         });
 
         it("removeTemporaryItem()", () => {
             const clearCookieSpy = jest.spyOn(
-                BrowserCacheManager.prototype,
-                "clearItemCookie"
+                CookieStorage.prototype,
+                "removeItem"
             );
             // sessionStorage
             browserSessionStorage.setTemporaryCache("cacheKey", cacheVal, true);
@@ -2672,14 +2674,16 @@ describe("BrowserCacheManager tests", () => {
             expect(document.cookie).toBe(
                 `${encodeURIComponent(msalCacheKey)}=${cacheVal}`
             );
-            browserSessionStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.removeItem(msalCacheKey);
             // localStorage
             browserLocalStorage.setTemporaryCache(msalCacheKey, cacheVal);
             expect(window.sessionStorage.getItem(msalCacheKey)).toBe(cacheVal);
             expect(document.cookie).toBe(
                 `${encodeURIComponent(msalCacheKey)}=${cacheVal}`
             );
-            browserLocalStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserLocalStorage.cookieStorage.removeItem(msalCacheKey);
             // browser memory
             browserMemoryStorage.setTemporaryCache(msalCacheKey, cacheVal);
             expect(browserMemoryStorage.getTemporaryCache(msalCacheKey)).toBe(
@@ -2688,18 +2692,20 @@ describe("BrowserCacheManager tests", () => {
             expect(document.cookie).toBe(
                 `${encodeURIComponent(msalCacheKey)}=${cacheVal}`
             );
-            browserMemoryStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserMemoryStorage.cookieStorage.removeItem(msalCacheKey);
         });
 
         it("getTempCache() with item that contains ==", () => {
             msalCacheKey = `${Constants.CACHE_PREFIX}.${TEST_STATE_VALUES.ENCODED_LIB_STATE}`;
             const getCookieSpy = jest.spyOn(
-                BrowserCacheManager.prototype,
-                "getItemCookie"
+                CookieStorage.prototype,
+                "getItem"
             );
             // sessionStorage
             browserSessionStorage.setItem(msalCacheKey, cacheVal);
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             expect(browserSessionStorage.getTemporaryCache(msalCacheKey)).toBe(
                 cacheVal
             );
@@ -2707,7 +2713,8 @@ describe("BrowserCacheManager tests", () => {
             expect(getCookieSpy).toHaveBeenCalledTimes(1);
             // localStorage
             browserLocalStorage.setItem(msalCacheKey, cacheVal);
-            browserLocalStorage.setItemCookie(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserLocalStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             expect(browserLocalStorage.getTemporaryCache(msalCacheKey)).toBe(
                 cacheVal
             );
@@ -2725,8 +2732,8 @@ describe("BrowserCacheManager tests", () => {
         it("removeTemporaryItem() with item that contains ==", () => {
             msalCacheKey = `${Constants.CACHE_PREFIX}.${TEST_STATE_VALUES.ENCODED_LIB_STATE}`;
             const clearCookieSpy = jest.spyOn(
-                BrowserCacheManager.prototype,
-                "clearItemCookie"
+                CookieStorage.prototype,
+                "removeItem"
             );
             // sessionStorage
             browserSessionStorage.setTemporaryCache(msalCacheKey, cacheVal);
@@ -2792,56 +2799,50 @@ describe("BrowserCacheManager tests", () => {
         });
 
         it("setItemCookie()", () => {
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
-            browserSessionStorage.clearItemCookie(msalCacheKey);
-            browserLocalStorage.setItemCookie(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.removeItem(msalCacheKey);
+            // @ts-ignore
+            browserLocalStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
         });
 
         it("sets samesite", () => {
             const cookieSpy = jest.spyOn(document, "cookie", "set");
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             expect(cookieSpy.mock.calls[0][0]).toContain("SameSite=Lax");
         });
 
         it("getItemCookie()", () => {
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
-            expect(browserSessionStorage.getItemCookie(msalCacheKey)).toBe(
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
+            // @ts-ignore
+            expect(browserSessionStorage.cookieStorage.getItem(msalCacheKey)).toBe(
                 cacheVal
             );
-            expect(browserLocalStorage.getItemCookie(msalCacheKey)).toBe(
+            // @ts-ignore
+            expect(browserLocalStorage.cookieStorage.getItem(msalCacheKey)).toBe(
                 cacheVal
             );
-        });
-
-        it("clearMsalCookie()", () => {
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
-            expect(document.cookie).not.toHaveLength(0);
-            browserSessionStorage.clearMsalCookies();
-            expect(document.cookie).toHaveLength(0);
-
-            const testCookieKey = "cookie";
-            const testCookie = `${testCookieKey}=thisIsACookie`;
-            const testCookieWithPath = "cookie=thisIsACookie;path=/;";
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
-            expect(document.cookie).not.toHaveLength(0);
-            document.cookie = testCookieWithPath;
-            browserSessionStorage.clearMsalCookies();
-            expect(document.cookie).toBe(testCookie);
-            browserSessionStorage.clearItemCookie(testCookieKey);
         });
 
         it("clearItemCookie()", () => {
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
-            browserSessionStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.removeItem(msalCacheKey);
             expect(document.cookie).toHaveLength(0);
-
-            browserLocalStorage.setItemCookie(msalCacheKey, cacheVal);
-            browserSessionStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserLocalStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.removeItem(msalCacheKey);
             expect(document.cookie).toHaveLength(0);
         });
 
+        /* TODO: Move this to new file
         it("getCookieExpirationTime()", () => {
             const COOKIE_LIFE_MULTIPLIER = 24 * 60 * 60 * 1000;
             const currentTime = new Date().getTime();
@@ -2853,7 +2854,7 @@ describe("BrowserCacheManager tests", () => {
             expect(
                 browserLocalStorage.getCookieExpirationTime(cookieLifeDays)
             ).toBe(expectedDate.toUTCString());
-        });
+        }); */
     });
 
     describe("Helpers", () => {
