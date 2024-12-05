@@ -2603,8 +2603,8 @@ describe("BrowserCacheManager tests", () => {
             expect(
                 browserSessionStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
-            // @ts-ignore
             expect(
+                // @ts-ignore
                 browserSessionStorage.cookieStorage.getItem(msalCacheKey)
             ).toEqual(cacheVal);
             // localStorage
@@ -2614,8 +2614,8 @@ describe("BrowserCacheManager tests", () => {
             expect(
                 browserLocalStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
-            // @ts-ignore
             expect(
+                // @ts-ignore
                 browserLocalStorage.cookieStorage.getItem(msalCacheKey)
             ).toEqual(cacheVal);
             // browser memory
@@ -2623,8 +2623,8 @@ describe("BrowserCacheManager tests", () => {
             expect(
                 browserMemoryStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
-            // @ts-ignore
             expect(
+                // @ts-ignore
                 browserMemoryStorage.cookieStorage.getItem(msalCacheKey)
             ).toEqual(cacheVal);
         });
@@ -2776,88 +2776,6 @@ describe("BrowserCacheManager tests", () => {
             expect(browserMemoryStorage.getKeys()).toHaveLength(0);
             expect(document.cookie).toHaveLength(0);
         });
-    });
-
-    describe("Cookie operations", () => {
-        let browserSessionStorage: BrowserCacheManager;
-        let browserLocalStorage: BrowserCacheManager;
-        let cacheVal: string;
-        let msalCacheKey: string;
-        beforeEach(() => {
-            browserSessionStorage = new BrowserCacheManager(
-                TEST_CONFIG.MSAL_CLIENT_ID,
-                cacheConfig,
-                browserCrypto,
-                logger
-            );
-            cacheConfig.cacheLocation = BrowserCacheLocation.LocalStorage;
-            browserLocalStorage = new BrowserCacheManager(
-                TEST_CONFIG.MSAL_CLIENT_ID,
-                cacheConfig,
-                browserCrypto,
-                logger
-            );
-            cacheVal = "cacheVal";
-            msalCacheKey = browserSessionStorage.generateCacheKey("cacheKey");
-        });
-
-        it("setItemCookie()", () => {
-            // @ts-ignore
-            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
-            expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
-            // @ts-ignore
-            browserSessionStorage.cookieStorage.removeItem(msalCacheKey);
-            // @ts-ignore
-            browserLocalStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
-            expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
-        });
-
-        it("sets samesite", () => {
-            const cookieSpy = jest.spyOn(document, "cookie", "set");
-            // @ts-ignore
-            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
-            expect(cookieSpy.mock.calls[0][0]).toContain("SameSite=Lax");
-        });
-
-        it("getItemCookie()", () => {
-            // @ts-ignore
-            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
-            // @ts-ignore
-            expect(
-                browserSessionStorage.cookieStorage.getItem(msalCacheKey)
-            ).toBe(cacheVal);
-            // @ts-ignore
-            expect(
-                browserLocalStorage.cookieStorage.getItem(msalCacheKey)
-            ).toBe(cacheVal);
-        });
-
-        it("clearItemCookie()", () => {
-            // @ts-ignore
-            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
-            // @ts-ignore
-            browserSessionStorage.cookieStorage.removeItem(msalCacheKey);
-            expect(document.cookie).toHaveLength(0);
-            // @ts-ignore
-            browserLocalStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
-            // @ts-ignore
-            browserSessionStorage.cookieStorage.removeItem(msalCacheKey);
-            expect(document.cookie).toHaveLength(0);
-        });
-
-        /* TODO: Move this to new file
-        it("getCookieExpirationTime()", () => {
-            const COOKIE_LIFE_MULTIPLIER = 24 * 60 * 60 * 1000;
-            const currentTime = new Date().getTime();
-            jest.spyOn(Date.prototype, "getTime").mockReturnValue(currentTime);
-            const cookieLifeDays = 1;
-            const expectedDate = new Date(
-                currentTime + cookieLifeDays * COOKIE_LIFE_MULTIPLIER
-            );
-            expect(
-                browserLocalStorage.getCookieExpirationTime(cookieLifeDays)
-            ).toBe(expectedDate.toUTCString());
-        }); */
     });
 
     describe("Helpers", () => {

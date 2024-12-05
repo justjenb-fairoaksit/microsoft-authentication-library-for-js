@@ -53,11 +53,12 @@ export class CookieStorage implements IWindowStorage<string> {
 
     getKeys(): string[] {
         const cookieList = document.cookie.split(";");
-        const keys = [];
-        for (const cookie in cookieList) {
+        const keys: Array<string> = [];
+        cookieList.forEach((cookie) => {
             const cookieParts = decodeURIComponent(cookie).trim().split("=");
             keys.push(cookieParts[0]);
-        }
+        });
+
         return keys;
     }
 
@@ -70,7 +71,7 @@ export class CookieStorage implements IWindowStorage<string> {
  * Get cookie expiration time
  * @param cookieLifeDays
  */
-function getCookieExpirationTime(cookieLifeDays: number): string {
+export function getCookieExpirationTime(cookieLifeDays: number): string {
     const today = new Date();
     const expr = new Date(
         today.getTime() + cookieLifeDays * COOKIE_LIFE_MULTIPLIER
