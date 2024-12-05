@@ -14,7 +14,7 @@ export class CookieStorage implements IWindowStorage<string> {
         const cookieList = document.cookie.split(";");
         for (let i=0; i < cookieList.length; i++) {
             const cookie = cookieList[i];
-            let [key, ...rest] = decodeURIComponent(cookie).trim().split("=");
+            const [key, ...rest] = decodeURIComponent(cookie).trim().split("=");
             const value = rest.join("=");
 
             if (key === name) {
@@ -53,9 +53,9 @@ export class CookieStorage implements IWindowStorage<string> {
 
     getKeys(): string[] {
         const cookieList = document.cookie.split(";");
-        let keys = [];
-        for (let cookie in cookieList) {
-            let cookieParts = decodeURIComponent(cookie).trim().split("=");
+        const keys = [];
+        for (const cookie in cookieList) {
+            const cookieParts = decodeURIComponent(cookie).trim().split("=");
             keys.push(cookieParts[0]);
         }
         return keys;
