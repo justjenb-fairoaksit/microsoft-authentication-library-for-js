@@ -2604,7 +2604,9 @@ describe("BrowserCacheManager tests", () => {
                 browserSessionStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
             // @ts-ignore
-            expect(browserSessionStorage.cookieStorage.getItem(msalCacheKey)).toEqual(cacheVal);
+            expect(
+                browserSessionStorage.cookieStorage.getItem(msalCacheKey)
+            ).toEqual(cacheVal);
             // localStorage
             window.localStorage.setItem(msalCacheKey, cacheVal);
             // @ts-ignore
@@ -2613,14 +2615,18 @@ describe("BrowserCacheManager tests", () => {
                 browserLocalStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
             // @ts-ignore
-            expect(browserLocalStorage.cookieStorage.getItem(msalCacheKey)).toEqual(cacheVal);
+            expect(
+                browserLocalStorage.cookieStorage.getItem(msalCacheKey)
+            ).toEqual(cacheVal);
             // browser memory
             browserMemoryStorage.setItem(msalCacheKey, cacheVal);
             expect(
                 browserMemoryStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
             // @ts-ignore
-            expect(browserMemoryStorage.cookieStorage.getItem(msalCacheKey)).toEqual(cacheVal);
+            expect(
+                browserMemoryStorage.cookieStorage.getItem(msalCacheKey)
+            ).toEqual(cacheVal);
         });
 
         it("removeTemporaryItem()", () => {
@@ -2698,10 +2704,7 @@ describe("BrowserCacheManager tests", () => {
 
         it("getTempCache() with item that contains ==", () => {
             msalCacheKey = `${Constants.CACHE_PREFIX}.${TEST_STATE_VALUES.ENCODED_LIB_STATE}`;
-            const getCookieSpy = jest.spyOn(
-                CookieStorage.prototype,
-                "getItem"
-            );
+            const getCookieSpy = jest.spyOn(CookieStorage.prototype, "getItem");
             // sessionStorage
             browserSessionStorage.setItem(msalCacheKey, cacheVal);
             // @ts-ignore
@@ -2820,13 +2823,13 @@ describe("BrowserCacheManager tests", () => {
             // @ts-ignore
             browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             // @ts-ignore
-            expect(browserSessionStorage.cookieStorage.getItem(msalCacheKey)).toBe(
-                cacheVal
-            );
+            expect(
+                browserSessionStorage.cookieStorage.getItem(msalCacheKey)
+            ).toBe(cacheVal);
             // @ts-ignore
-            expect(browserLocalStorage.cookieStorage.getItem(msalCacheKey)).toBe(
-                cacheVal
-            );
+            expect(
+                browserLocalStorage.cookieStorage.getItem(msalCacheKey)
+            ).toBe(cacheVal);
         });
 
         it("clearItemCookie()", () => {

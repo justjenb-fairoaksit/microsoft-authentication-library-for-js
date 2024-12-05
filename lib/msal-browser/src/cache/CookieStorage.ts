@@ -12,7 +12,7 @@ export class CookieStorage implements IWindowStorage<string> {
     getItem(key: string): string | null {
         const name = `${encodeURIComponent(key)}`;
         const cookieList = document.cookie.split(";");
-        for (let i=0; i < cookieList.length; i++) {
+        for (let i = 0; i < cookieList.length; i++) {
             const cookie = cookieList[i];
             const [key, ...rest] = decodeURIComponent(cookie).trim().split("=");
             const value = rest.join("=");
