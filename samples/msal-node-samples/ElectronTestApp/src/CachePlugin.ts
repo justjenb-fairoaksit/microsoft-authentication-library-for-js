@@ -9,8 +9,8 @@ export const cachePlugin = (CACHE_LOCATION: string): ICachePlugin => {
     const beforeCacheAccess = async (cacheContext) => {
         return new Promise<void>(async (resolve, reject) => {
             if (fs.existsSync(CACHE_LOCATION)) {
-                fs.readFile(CACHE_LOCATION, "utf-8", (err, data) => {
-                    if (err) {
+                fs.readFile(CACHE_LOCATION, "utf-8", (error, data) => {
+                    if (error) {
                         reject();
                     } else {
                         cacheContext.tokenCache.deserialize(data);
@@ -21,8 +21,8 @@ export const cachePlugin = (CACHE_LOCATION: string): ICachePlugin => {
                 fs.writeFile(
                     CACHE_LOCATION,
                     cacheContext.tokenCache.serialize(),
-                    (err) => {
-                        if (err) {
+                    (error) => {
+                        if (error) {
                             reject();
                         }
                     }
@@ -36,9 +36,9 @@ export const cachePlugin = (CACHE_LOCATION: string): ICachePlugin => {
             fs.writeFile(
                 CACHE_LOCATION,
                 cacheContext.tokenCache.serialize(),
-                (err) => {
-                    if (err) {
-                        console.log(err);
+                (error) => {
+                    if (error) {
+                        console.error(error);
                     }
                 }
             );

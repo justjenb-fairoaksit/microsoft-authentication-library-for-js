@@ -60,7 +60,7 @@ export default class AuthProvider {
                 .removeAccount(this.account);
             this.account = null;
         } catch (error) {
-            console.log(error);
+            console.error(error);
         }
     }
 

@@ -50,18 +50,19 @@ async function main() {
                 next(error);
             }
         },
-        (err: any, req: Request, res: Response, next: NextFunction) => {
+        (error: any, req: Request, res: Response, next: NextFunction) => {
             /**
              * Add your custom error handling logic here. For more information, see:
              * http://expressjs.com/en/guide/error-handling.html
              */
 
             // set locals, only providing error in development
-            res.locals.message = err.message;
-            res.locals.error = req.app.get("env") === "development" ? err : {};
+            res.locals.message = error.message;
+            res.locals.error =
+                req.app.get("env") === "development" ? error : {};
 
             // send error response
-            res.status(err.status || 500).send(err);
+            res.status(error.status || 500).send(error);
         }
     );
 
@@ -119,9 +120,9 @@ function initializePerformanceObserver(): void {
                 fs.appendFile(
                     "benchmarks.json",
                     `${JSON.stringify(results)}\n`,
-                    function (err) {
-                        if (err) {
-                            throw err;
+                    function (error) {
+                        if (error) {
+                            throw error;
                         }
                     }
                 );
@@ -143,7 +144,7 @@ async function initializeRedisClient(): Promise<RedisClientType> {
         },
     });
 
-    redis.on("error", (err: any) => console.log("Redis Client Error", err));
+    redis.on("error", (error: any) => console.log("Redis Client Error", error));
 
     await redis.connect();
     return redis as RedisClientType;

@@ -64,7 +64,7 @@ class TokenValidator {
 
             return this.validateAccessTokenClaims(idTokenClaims);
         } catch (error) {
-            console.log(error);
+            console.error(error);
             return false;
         }
     }
@@ -142,7 +142,7 @@ class TokenValidator {
         try {
             decodedToken = jwt.decode(rawAuthToken, { complete: true });
         } catch (error) {
-            console.log(error);
+            console.error(error);
             return false;
         }
 
@@ -153,7 +153,7 @@ class TokenValidator {
                 decodedToken &&
                 (await this.getSigningKeys(decodedToken.header));
         } catch (error) {
-            console.log(error);
+            console.error(error);
             return false;
         }
 
@@ -162,7 +162,7 @@ class TokenValidator {
             let verifiedToken = keys && jwt.verify(rawAuthToken, keys);
             return !!verifiedToken;
         } catch (error) {
-            console.log(error);
+            console.error(error);
             return false;
         }
     }

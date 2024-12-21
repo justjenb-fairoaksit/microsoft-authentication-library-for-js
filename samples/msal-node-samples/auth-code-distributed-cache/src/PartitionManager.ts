@@ -37,7 +37,7 @@ class PartitionManager implements IPartitionManager {
             const session = JSON.parse(sessionData) as SessionCacheData;
             return session.account?.homeAccountId || EMPTY_STRING;
         } catch (error) {
-            console.log(error);
+            console.error(error);
         }
 
         return EMPTY_STRING;

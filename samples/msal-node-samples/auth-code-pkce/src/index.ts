@@ -104,11 +104,9 @@ app.get("/", (req: RequestWithPKCE, res) => {
         };
 
         // Get url to sign user in and consent to scopes needed for applicatio
-        pca.getAuthCodeUrl(authCodeUrlParameters)
-            .then((response) => {
-                res.redirect(response);
-            })
-            .catch((error) => console.log(JSON.stringify(error)));
+        pca.getAuthCodeUrl(authCodeUrlParameters).then((response) => {
+            res.redirect(response);
+        });
     });
 });
 
@@ -124,11 +122,9 @@ app.get("/redirect", (req: RequestWithPKCE, res) => {
 
     pca.acquireTokenByCode(tokenRequest)
         .then((response) => {
-            console.log("\nResponse: \n:", response);
             res.sendStatus(200);
         })
         .catch((error) => {
-            console.log(error);
             res.status(500).send(error);
         });
 });

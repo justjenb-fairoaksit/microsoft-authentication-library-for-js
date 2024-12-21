@@ -41,7 +41,7 @@ class RedisClientWrapper implements ICacheClient {
         try {
             return (await this.cacheClient.get(key)) || EMPTY_STRING;
         } catch (error) {
-            console.log(error);
+            console.error(error);
         }
 
         return EMPTY_STRING;
@@ -61,7 +61,7 @@ class RedisClientWrapper implements ICacheClient {
                 })) || EMPTY_STRING
             );
         } catch (error) {
-            console.log(error);
+            console.error(error);
         }
 
         return EMPTY_STRING;

@@ -197,12 +197,9 @@ Next we direct the user to authenticate. The following code block directs the us
 **auth-code/index.js:**
 
 ```javascript
-clientApplication
-    .getAuthCodeUrl(authCodeUrlParameters)
-    .then((response) => {
-        res.redirect(response);
-    })
-    .catch((error) => console.log(JSON.stringify(error)));
+clientApplication.getAuthCodeUrl(authCodeUrlParameters).then((response) => {
+    res.redirect(response);
+});
 ```
 
 Putting together the routing and all the logic for starting the sign in yields the following code:
@@ -215,12 +212,9 @@ app.get("/", (req, res) => {
         redirectUri: "http://localhost:3000/redirect",
     };
 
-    clientApplication
-        .getAuthCodeUrl(authCodeUrlParameters)
-        .then((response) => {
-            res.redirect(response);
-        })
-        .catch((error) => console.log(JSON.stringify(error)));
+    clientApplication.getAuthCodeUrl(authCodeUrlParameters).then((response) => {
+        res.redirect(response);
+    });
 });
 ```
 
@@ -265,12 +259,10 @@ tokenRequest.code = "AUTH_CODE_FROM_RESPONSE";
 clientApplication
     .acquireTokenByCode(tokenRequest)
     .then((response) => {
-        console.log("\nResponse: \n:", response);
         res.sendStatus(200);
     })
     .catch((error) => {
-        console.log(error);
-        res.status(500).send(error);
+        res.status(500).send(error.errorMessage);
     });
 ```
 
@@ -290,11 +282,9 @@ app.get("/redirect", (req, res) => {
     clientApplication
         .acquireTokenByCode(tokenRequest)
         .then((response) => {
-            console.log("\nResponse: \n:", response);
             res.sendStatus(200);
         })
         .catch((error) => {
-            console.log(error);
             res.status(500).send(error);
         });
 });

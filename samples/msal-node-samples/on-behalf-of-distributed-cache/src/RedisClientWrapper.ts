@@ -62,7 +62,7 @@ class RedisClientWrapper implements ICacheClient {
                 })) || EMPTY_STRING
             );
         } catch (error) {
-            console.log(error);
+            console.error(error);
         }
 
         return EMPTY_STRING;
