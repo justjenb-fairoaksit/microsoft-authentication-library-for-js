@@ -3,7 +3,6 @@
  * Licensed under the MIT License.
  */
 
-import sinon from "sinon";
 import {
     AccountInfo,
     AccountEntity,
@@ -12,7 +11,7 @@ import {
     ClientConfigurationErrorCodes,
     CacheManager,
     IdTokenEntity,
-    AuthorityMetadataEntity,
+    CacheHelpers,
 } from "@azure/msal-common";
 import {
     TEST_DATA_CLIENT_INFO,
@@ -22,9 +21,10 @@ import {
     DEFAULT_OPENID_CONFIG_RESPONSE,
     ID_TOKEN_CLAIMS,
     ID_TOKEN_ALT_CLAIMS,
-} from "../utils/StringConstants";
-import { BaseInteractionClient } from "../../src/interaction_client/BaseInteractionClient";
-import { EndSessionRequest, PublicClientApplication } from "../../src";
+} from "../utils/StringConstants.js";
+import { BaseInteractionClient } from "../../src/interaction_client/BaseInteractionClient.js";
+import { EndSessionRequest, PublicClientApplication } from "../../src/index.js";
+import { OpenIdConfigResponse } from "../../../msal-common/src/authority/OpenIdConfigResponse.js";
 
 class testInteractionClient extends BaseInteractionClient {
     acquireToken(): Promise<void> {
@@ -64,12 +64,14 @@ describe("BaseInteractionClient", () => {
             // @ts-ignore
             pca.eventHandler,
             // @ts-ignore
+            pca.navigationClient,
+            // @ts-ignore
             pca.performanceClient
         );
     });
 
     afterEach(() => {
-        sinon.restore();
+        jest.restoreAllMocks();
     });
 
     describe("clearCacheOnLogout", () => {
@@ -154,21 +156,29 @@ describe("BaseInteractionClient", () => {
                 const metadata =
                     DEFAULT_TENANT_DISCOVERY_RESPONSE.body.metadata[0];
                 const openIdConfigResponse =
-                    DEFAULT_OPENID_CONFIG_RESPONSE.body;
-                const authorityMetadata = new AuthorityMetadataEntity();
-                authorityMetadata.updateCloudDiscoveryMetadata(metadata, true);
-                authorityMetadata.updateEndpointMetadata(
-                    // @ts-ignore
-                    openIdConfigResponse,
-                    true
-                );
-                return authorityMetadata;
+                    DEFAULT_OPENID_CONFIG_RESPONSE.body as OpenIdConfigResponse;
+                return {
+                    aliases: [],
+                    preferred_cache: metadata.preferred_cache,
+                    preferred_network: metadata.preferred_network,
+                    canonical_authority: host,
+                    authorization_endpoint:
+                        openIdConfigResponse.authorization_endpoint,
+                    token_endpoint: openIdConfigResponse.token_endpoint,
+                    end_session_endpoint:
+                        openIdConfigResponse.end_session_endpoint,
+                    issuer: openIdConfigResponse.issuer,
+                    aliasesFromNetwork: true,
+                    endpointsFromNetwork: true,
+                    expiresAt:
+                        CacheHelpers.generateAuthorityMetadataExpiresAt(),
+                    jwks_uri: openIdConfigResponse.jwks_uri,
+                };
             });
         });
 
         afterEach(() => {
             window.sessionStorage.clear();
-            jest.restoreAllMocks();
         });
 
         it("Removes all accounts from cache if no account provided", async () => {
@@ -192,7 +202,7 @@ describe("BaseInteractionClient", () => {
             expect(pca.getActiveAccount()).toBe(null);
         });
     });
-    describe("validateRequestAuthority()", () => {
+    describe("getDiscoveredAuthority()", () => {
         afterEach(() => {
             window.sessionStorage.clear();
         });
@@ -207,10 +217,12 @@ describe("BaseInteractionClient", () => {
             };
 
             await testClient
-                .validateRequestAuthority(
-                    "https://login.microsoftonline.com/common",
-                    testAccount
-                )
+                // @ts-ignore
+                .getDiscoveredAuthority({
+                    requestAuthority:
+                        "https://login.microsoftonline.com/common",
+                    account: testAccount,
+                })
                 .then(() => {
                     throw "This is unexpected. This call should have failed.";
                 })
@@ -233,10 +245,98 @@ describe("BaseInteractionClient", () => {
             };
 
             testClient
-                .validateRequestAuthority(
-                    "https://login.microsoftonline.com/common",
-                    testAccount
-                )
+                // @ts-ignore
+                .getDiscoveredAuthority({
+                    requestAuthority:
+                        "https://login.microsoftonline.com/common",
+                    account: testAccount,
+                })
+                .then(() => {
+                    done();
+                })
+                .catch((error) => {
+                    done(error);
+                });
+        });
+
+        it("Does not throw error when instanceAware is set in the config", (done) => {
+            const testAccount = {
+                homeAccountId: TEST_DATA_CLIENT_INFO.TEST_HOME_ACCOUNT_ID,
+                localAccountId: TEST_DATA_CLIENT_INFO.TEST_UID,
+                environment: "login.microsoftonline.us",
+                tenantId: "3338040d-6c67-4c5b-b112-36a304b66dad",
+                username: "AbeLi@microsoft.com",
+            };
+
+            // @ts-ignore
+            const config = { ...pca.config };
+            config.auth.instanceAware = true;
+
+            const interactionClient = new testInteractionClient(
+                config,
+                // @ts-ignore
+                pca.browserStorage,
+                // @ts-ignore
+                pca.browserCrypto,
+                // @ts-ignore
+                pca.logger,
+                // @ts-ignore
+                pca.eventHandler,
+                // @ts-ignore
+                pca.navigationClient,
+                // @ts-ignore
+                pca.performanceClient
+            );
+
+            interactionClient
+                // @ts-ignore
+                .getDiscoveredAuthority({
+                    account: testAccount,
+                })
+                .then(() => {
+                    done();
+                })
+                .catch((error) => {
+                    done(error);
+                });
+        });
+
+        it("Does not throw error when both instanceAware is set in the config and request authority is set in the request", (done) => {
+            const testAccount = {
+                homeAccountId: TEST_DATA_CLIENT_INFO.TEST_HOME_ACCOUNT_ID,
+                localAccountId: TEST_DATA_CLIENT_INFO.TEST_UID,
+                environment: "login.microsoftonline.us",
+                tenantId: "3338040d-6c67-4c5b-b112-36a304b66dad",
+                username: "AbeLi@microsoft.com",
+            };
+
+            // @ts-ignore
+            const config = { ...pca.config };
+            config.auth.instanceAware = true;
+
+            const interactionClient = new testInteractionClient(
+                config,
+                // @ts-ignore
+                pca.browserStorage,
+                // @ts-ignore
+                pca.browserCrypto,
+                // @ts-ignore
+                pca.logger,
+                // @ts-ignore
+                pca.eventHandler,
+                // @ts-ignore
+                pca.navigationClient,
+                // @ts-ignore
+                pca.performanceClient
+            );
+
+            interactionClient
+                // @ts-ignore
+                .getDiscoveredAuthority({
+                    account: testAccount,
+                    requestAuthority:
+                        "https://login.microsoftonline.com/common",
+                })
                 .then(() => {
                     done();
                 })

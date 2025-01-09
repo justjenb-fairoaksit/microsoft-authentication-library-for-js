@@ -9,6 +9,7 @@ import {
     UserTypes,
     B2cProviders,
     BrowserCacheUtils,
+    B2C_MSA_TEST_UPN,
 } from "e2e-test-utils";
 
 const SCREENSHOT_BASE_FOLDER_NAME = `${__dirname}/screenshots/msa-account-tests`;
@@ -31,7 +32,7 @@ describe("B2C user-flow tests (msa account)", () => {
 
         const labApiParams: LabApiQueryParams = {
             userType: UserTypes.B2C,
-            b2cProvider: B2cProviders.TWITTER,
+            b2cProvider: B2cProviders.MICROSOFT,
         };
 
         const labClient = new LabClient();
@@ -43,6 +44,9 @@ describe("B2C user-flow tests (msa account)", () => {
             envResponse[0],
             labClient
         );
+
+        // TODO: Remove when B2C MSA account is available in the lab
+        username = B2C_MSA_TEST_UPN;
     });
 
     beforeEach(async () => {
@@ -113,6 +117,7 @@ describe("B2C user-flow tests (msa account)", () => {
             await editProfileButton.click();
         }
         let displayName = (Math.random() + 1).toString(36).substring(7); // generate a random string
+        await page.waitForNavigation();
         await page.waitForSelector("#attributeVerification", { visible: true });
         await page.$eval("#displayName", (el: any) => (el.value = "")), // clear the text field
             await page.type("#displayName", `${displayName}`),

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License.
+ */
+
 import {
     LogLevel,
     Logger,
@@ -7,19 +12,20 @@ import {
     AccessTokenEntity,
     IdTokenEntity,
     RefreshTokenEntity,
+    CacheHelpers,
 } from "@azure/msal-common";
 import {
     JsonCache,
     InMemoryCache,
-} from "./../../src/cache/serializer/SerializerTypes";
-import { Deserializer } from "./../../src/cache/serializer/Deserializer";
-import { NodeStorage } from "../../src/cache/NodeStorage";
+} from "./../../src/cache/serializer/SerializerTypes.js";
+import { Deserializer } from "./../../src/cache/serializer/Deserializer.js";
+import { NodeStorage } from "../../src/cache/NodeStorage.js";
 import { version, name } from "../../package.json";
 import {
     DEFAULT_CRYPTO_IMPLEMENTATION,
     DEFAULT_OPENID_CONFIG_RESPONSE,
     TEST_CONSTANTS,
-} from "../utils/TestConstants";
+} from "../utils/TestConstants.js";
 
 const cacheJson = require("./serializer/cache.json");
 const clientId = TEST_CONSTANTS.CLIENT_ID;
@@ -421,22 +427,23 @@ describe("Storage tests for msal-node: ", () => {
         describe("AuthorityMetadata", () => {
             const host = "login.microsoftonline.com";
             const key = `authority-metadata-${clientId}-${host}`;
-            const testObj: AuthorityMetadataEntity =
-                new AuthorityMetadataEntity();
-            testObj.aliases = [host];
-            testObj.preferred_cache = host;
-            testObj.preferred_network = host;
-            testObj.canonical_authority = TEST_CONSTANTS.DEFAULT_AUTHORITY;
-            testObj.authorization_endpoint =
-                DEFAULT_OPENID_CONFIG_RESPONSE.body.authorization_endpoint;
-            testObj.token_endpoint =
-                DEFAULT_OPENID_CONFIG_RESPONSE.body.token_endpoint;
-            testObj.end_session_endpoint =
-                DEFAULT_OPENID_CONFIG_RESPONSE.body.end_session_endpoint;
-            testObj.issuer = DEFAULT_OPENID_CONFIG_RESPONSE.body.issuer;
-            testObj.jwks_uri = DEFAULT_OPENID_CONFIG_RESPONSE.body.jwks_uri;
-            testObj.aliasesFromNetwork = false;
-            testObj.endpointsFromNetwork = false;
+            const testObj: AuthorityMetadataEntity = {
+                aliases: [host],
+                preferred_cache: host,
+                preferred_network: host,
+                canonical_authority: TEST_CONSTANTS.DEFAULT_AUTHORITY,
+                authorization_endpoint:
+                    DEFAULT_OPENID_CONFIG_RESPONSE.body.authorization_endpoint,
+                token_endpoint:
+                    DEFAULT_OPENID_CONFIG_RESPONSE.body.token_endpoint,
+                end_session_endpoint:
+                    DEFAULT_OPENID_CONFIG_RESPONSE.body.end_session_endpoint,
+                issuer: DEFAULT_OPENID_CONFIG_RESPONSE.body.issuer,
+                jwks_uri: DEFAULT_OPENID_CONFIG_RESPONSE.body.jwks_uri,
+                aliasesFromNetwork: false,
+                endpointsFromNetwork: false,
+                expiresAt: CacheHelpers.generateAuthorityMetadataExpiresAt(),
+            };
 
             it("getAuthorityMetadata() returns null if key is not in cache", () => {
                 const nodeStorage = new NodeStorage(

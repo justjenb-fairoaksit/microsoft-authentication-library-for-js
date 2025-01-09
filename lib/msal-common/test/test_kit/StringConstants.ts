@@ -234,8 +234,11 @@ export const TEST_POP_VALUES = {
     CLIENT_CLAIMS:
         '{"customClaim":"CustomClaimValue","anotherClaim":"AnotherValue"}',
     KID: "NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs",
+    POPKID: "XnsuAvttTPp0nn1K_YMLePLDbp7syCKhNHt7HjYHJYc",
+    POPKID_OBJ:
+        '{"kid":"NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs","xms_ksl":"sw"}',
     ENCODED_REQ_CNF:
-        "eyJraWQiOiJOemJMc1hoOHVEQ2NkLTZNTndYRjRXXzdub1dYRlpBZkhreFpzUkdDOVhzIiwieG1zX2tzbCI6InN3In0=",
+        "eyJraWQiOiJOemJMc1hoOHVEQ2NkLTZNTndYRjRXXzdub1dYRlpBZkhreFpzUkdDOVhzIiwieG1zX2tzbCI6InN3In0",
     DECODED_REQ_CNF:
         '{"kid":"NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs","xms_ksl":"sw"}',
     SAMPLE_POP_AT:
@@ -673,6 +676,23 @@ export const AUTHORIZATION_PENDING_RESPONSE = {
         trace_id: "01707a0c-640b-4049-8cbb-ee2304dc0700",
         correlation_id: "78b0fdfc-dd0e-4dfb-b13a-d316333783f6",
         error_uri: "https://login.microsoftonline.com/error?code=70016",
+    },
+};
+
+export const BAD_TOKEN_ERROR_RESPONSE = {
+    body: {
+        error: "invalid_grant",
+        suberror: "bad_token",
+        error_description:
+            "AADSTS9002313: Invalid request. Request is malformed or invalid." +
+            "Trace ID: 01707a0c-640b-4049-8cbb-ee2304dc0700" +
+            "Correlation ID: 78b0fdfc-dd0e-4dfb-b13a-d316333783f6" +
+            "Timestamp: 2020-03-26 22:54:14Z",
+        error_codes: [9002313],
+        timestamp: "2020-03-26 22:54:14Z",
+        trace_id: "01707a0c-640b-4049-8cbb-ee2304dc0700",
+        correlation_id: "78b0fdfc-dd0e-4dfb-b13a-d316333783f6",
+        error_uri: "https://login.microsoftonline.com/error?code=9002313",
     },
 };
 

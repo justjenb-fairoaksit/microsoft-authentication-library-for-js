@@ -3,8 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import sinon from "sinon";
-import { PublicClientApplication } from "../../src/app/PublicClientApplication";
+import { PublicClientApplication } from "../../src/app/PublicClientApplication.js";
 import {
     TEST_CONFIG,
     TEST_URIS,
@@ -21,7 +20,7 @@ import {
     TEST_SSH_VALUES,
     ID_TOKEN_CLAIMS,
     TEST_TOKEN_RESPONSE,
-} from "../utils/StringConstants";
+} from "../utils/StringConstants.js";
 import {
     ServerError,
     Constants,
@@ -45,42 +44,43 @@ import {
     ServerTelemetryManager,
     AccountEntity,
     AuthError,
-    NetworkManager,
     createClientConfigurationError,
     ClientConfigurationErrorCodes,
     IdTokenEntity,
     CredentialType,
+    InProgressPerformanceEvent,
 } from "@azure/msal-common";
-import * as BrowserUtils from "../../src/utils/BrowserUtils";
+import * as BrowserUtils from "../../src/utils/BrowserUtils.js";
 import {
     TemporaryCacheKeys,
     ApiId,
     BrowserCacheLocation,
     InteractionType,
-} from "../../src/utils/BrowserConstants";
-import { base64Encode } from "../../src/encode/Base64Encode";
-import { FetchClient } from "../../src/network/FetchClient";
+} from "../../src/utils/BrowserConstants.js";
+import { base64Encode } from "../../src/encode/Base64Encode.js";
+import { FetchClient } from "../../src/network/FetchClient.js";
 import {
     createBrowserAuthError,
     BrowserAuthErrorMessage,
     BrowserAuthErrorCodes,
-} from "../../src/error/BrowserAuthError";
-import { RedirectHandler } from "../../src/interaction_handler/RedirectHandler";
-import { CryptoOps } from "../../src/crypto/CryptoOps";
-import * as BrowserCrypto from "../../src/crypto/BrowserCrypto";
-import * as PkceGenerator from "../../src/crypto/PkceGenerator";
-import { BrowserCacheManager } from "../../src/cache/BrowserCacheManager";
-import { RedirectRequest } from "../../src/request/RedirectRequest";
-import { NavigationClient } from "../../src/navigation/NavigationClient";
-import { NavigationOptions } from "../../src/navigation/NavigationOptions";
-import { RedirectClient } from "../../src/interaction_client/RedirectClient";
-import { EventHandler } from "../../src/event/EventHandler";
-import { EventType } from "../../src/event/EventType";
-import { NativeInteractionClient } from "../../src/interaction_client/NativeInteractionClient";
-import { NativeMessageHandler } from "../../src/broker/nativeBroker/NativeMessageHandler";
-import { getDefaultPerformanceClient } from "../utils/TelemetryUtils";
-import { AuthenticationResult } from "../../src/response/AuthenticationResult";
+} from "../../src/error/BrowserAuthError.js";
+import { RedirectHandler } from "../../src/interaction_handler/RedirectHandler.js";
+import { CryptoOps } from "../../src/crypto/CryptoOps.js";
+import * as BrowserCrypto from "../../src/crypto/BrowserCrypto.js";
+import * as PkceGenerator from "../../src/crypto/PkceGenerator.js";
+import { BrowserCacheManager } from "../../src/cache/BrowserCacheManager.js";
+import { RedirectRequest } from "../../src/request/RedirectRequest.js";
+import { NavigationClient } from "../../src/navigation/NavigationClient.js";
+import { NavigationOptions } from "../../src/navigation/NavigationOptions.js";
+import { RedirectClient } from "../../src/interaction_client/RedirectClient.js";
+import { EventHandler } from "../../src/event/EventHandler.js";
+import { EventType } from "../../src/event/EventType.js";
+import { NativeInteractionClient } from "../../src/interaction_client/NativeInteractionClient.js";
+import { NativeMessageHandler } from "../../src/broker/nativeBroker/NativeMessageHandler.js";
+import { getDefaultPerformanceClient } from "../utils/TelemetryUtils.js";
+import { AuthenticationResult } from "../../src/response/AuthenticationResult.js";
 import { buildAccountFromIdTokenClaims, buildIdToken } from "msal-test-utils";
+import { BrowserPerformanceClient } from "../../src/telemetry/BrowserPerformanceClient.js";
 
 const cacheConfig = {
     cacheLocation: BrowserCacheLocation.SessionStorage,
@@ -109,6 +109,7 @@ describe("RedirectClient", () => {
     let redirectClient: RedirectClient;
     let browserStorage: BrowserCacheManager;
     let pca: PublicClientApplication;
+    let rootMeasurement: InProgressPerformanceEvent;
 
     beforeEach(async () => {
         pca = new PublicClientApplication({
@@ -162,11 +163,14 @@ describe("RedirectClient", () => {
             //@ts-ignore
             pca.nativeInternalStorage
         );
+
+        rootMeasurement = new BrowserPerformanceClient(
+            pca.getConfiguration()
+        ).startMeasurement("test-measurement", "test-correlation-id");
     });
 
     afterEach(() => {
         jest.restoreAllMocks();
-        sinon.restore();
         window.location.hash = "";
         window.sessionStorage.clear();
         window.localStorage.clear();
@@ -185,12 +189,14 @@ describe("RedirectClient", () => {
                 `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.REQUEST_STATE}.${stateId}`,
                 TEST_STATE_VALUES.TEST_STATE_REDIRECT
             );
-            redirectClient.handleRedirectPromise().then((response) => {
-                expect(response).toBe(null);
-                expect(window.localStorage.length).toEqual(0);
-                expect(window.sessionStorage.length).toEqual(0);
-                done();
-            });
+            redirectClient
+                .handleRedirectPromise("", rootMeasurement)
+                .then((response) => {
+                    expect(response).toBe(null);
+                    expect(window.localStorage.length).toEqual(0);
+                    expect(window.sessionStorage.length).toEqual(0);
+                    done();
+                });
         });
 
         it("cleans temporary cache and return null if no state", (done) => {
@@ -206,7 +212,10 @@ describe("RedirectClient", () => {
                 TEST_STATE_VALUES.TEST_STATE_REDIRECT
             );
             redirectClient
-                .handleRedirectPromise("#code=ThisIsAnAuthCode")
+                .handleRedirectPromise(
+                    "#code=ThisIsAnAuthCode",
+                    rootMeasurement
+                )
                 .then((response) => {
                     expect(response).toBe(null);
                     expect(window.localStorage.length).toEqual(0);
@@ -215,7 +224,7 @@ describe("RedirectClient", () => {
                 });
         });
 
-        it("If response hash is not a Redirect response cleans temporary cache, return null and don't remove hash", (done) => {
+        it("If response hash is not a Redirect response cleans temporary cache, return null and do not remove hash", (done) => {
             browserStorage.setInteractionInProgress(true);
             const stateString = TEST_STATE_VALUES.TEST_STATE_REDIRECT;
             const browserCrypto = new CryptoOps(new Logger({}));
@@ -228,15 +237,17 @@ describe("RedirectClient", () => {
                 TEST_STATE_VALUES.TEST_STATE_REDIRECT
             );
             window.location.hash = TEST_HASHES.TEST_SUCCESS_CODE_HASH_POPUP;
-            redirectClient.handleRedirectPromise().then((response) => {
-                expect(response).toBe(null);
-                expect(window.localStorage.length).toEqual(0);
-                expect(window.sessionStorage.length).toEqual(0);
-                expect(window.location.hash).toEqual(
-                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_POPUP
-                );
-                done();
-            });
+            redirectClient
+                .handleRedirectPromise("", rootMeasurement)
+                .then((response) => {
+                    expect(response).toBe(null);
+                    expect(window.localStorage.length).toEqual(0);
+                    expect(window.sessionStorage.length).toEqual(0);
+                    expect(window.location.hash).toEqual(
+                        TEST_HASHES.TEST_SUCCESS_CODE_HASH_POPUP
+                    );
+                    done();
+                });
         });
 
         it("cleans temporary cache and rethrows if error is thrown", (done) => {
@@ -261,12 +272,14 @@ describe("RedirectClient", () => {
             ).mockImplementation(() => {
                 throw testError;
             });
-            redirectClient.handleRedirectPromise().catch((e) => {
-                expect(e).toMatchObject(testError);
-                expect(window.localStorage.length).toEqual(0);
-                expect(window.sessionStorage.length).toEqual(1); // telemetry
-                done();
-            });
+            redirectClient
+                .handleRedirectPromise("", rootMeasurement)
+                .catch((e) => {
+                    expect(e).toMatchObject(testError);
+                    expect(window.localStorage.length).toEqual(0);
+                    expect(window.sessionStorage.length).toEqual(1); // telemetry
+                    done();
+                });
         });
 
         it("cleans temporary cache and return null if state cannot be decoded", (done) => {
@@ -283,7 +296,8 @@ describe("RedirectClient", () => {
             );
             redirectClient
                 .handleRedirectPromise(
-                    TEST_HASHES.TEST_SUCCESS_HASH_STATE_NO_META
+                    TEST_HASHES.TEST_SUCCESS_HASH_STATE_NO_META,
+                    rootMeasurement
                 )
                 .then((response) => {
                     expect(response).toBe(null);
@@ -315,7 +329,8 @@ describe("RedirectClient", () => {
             ).mockRejectedValue("Error in handleResponse");
             redirectClient
                 .handleRedirectPromise(
-                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT
+                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT,
+                    rootMeasurement
                 )
                 .catch((e) => {
                     expect(e).toEqual("Error in handleResponse");
@@ -352,7 +367,8 @@ describe("RedirectClient", () => {
             ).mockRejectedValue("Error in handleResponse");
             redirectClient
                 .handleRedirectPromise(
-                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT
+                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT,
+                    rootMeasurement
                 )
                 .catch((e) => {
                     expect(e).toEqual("Error in handleResponse");
@@ -409,7 +425,8 @@ describe("RedirectClient", () => {
                 );
             redirectClient
                 .handleRedirectPromise(
-                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT
+                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT,
+                    rootMeasurement
                 )
                 .catch((e) => {
                     expect(e).toEqual("Error in handleResponse");
@@ -500,22 +517,25 @@ describe("RedirectClient", () => {
                 tokenType: AuthenticationScheme.BEARER,
             };
 
-            sinon
-                .stub(FetchClient.prototype, "sendGetRequestAsync")
-                .callsFake((url): any => {
-                    if (url.includes("discovery/instance")) {
-                        return DEFAULT_TENANT_DISCOVERY_RESPONSE;
-                    } else if (
-                        url.includes(".well-known/openid-configuration")
-                    ) {
-                        return DEFAULT_OPENID_CONFIG_RESPONSE;
-                    }
-                });
-            sinon
-                .stub(FetchClient.prototype, "sendPostRequestAsync")
-                .resolves(testServerTokenResponse);
+            jest.spyOn(
+                FetchClient.prototype,
+                "sendGetRequestAsync"
+            ).mockImplementation((url): any => {
+                if (url.includes("discovery/instance")) {
+                    return DEFAULT_TENANT_DISCOVERY_RESPONSE;
+                } else if (url.includes(".well-known/openid-configuration")) {
+                    return DEFAULT_OPENID_CONFIG_RESPONSE;
+                }
+            });
+            jest.spyOn(
+                FetchClient.prototype,
+                "sendPostRequestAsync"
+            ).mockResolvedValue(testServerTokenResponse);
 
-            const tokenResponse = await redirectClient.handleRedirectPromise();
+            const tokenResponse = await redirectClient.handleRedirectPromise(
+                "",
+                rootMeasurement
+            );
             expect(tokenResponse?.uniqueId).toEqual(testTokenResponse.uniqueId);
             expect(tokenResponse?.tenantId).toEqual(testTokenResponse.tenantId);
             expect(tokenResponse?.scopes).toEqual(testTokenResponse.scopes);
@@ -659,22 +679,25 @@ describe("RedirectClient", () => {
                 tokenType: AuthenticationScheme.BEARER,
             };
 
-            sinon
-                .stub(FetchClient.prototype, "sendGetRequestAsync")
-                .callsFake((url): any => {
-                    if (url.includes("discovery/instance")) {
-                        return DEFAULT_TENANT_DISCOVERY_RESPONSE;
-                    } else if (
-                        url.includes(".well-known/openid-configuration")
-                    ) {
-                        return DEFAULT_OPENID_CONFIG_RESPONSE;
-                    }
-                });
-            sinon
-                .stub(NativeInteractionClient.prototype, "acquireToken")
-                .resolves(testTokenResponse);
+            jest.spyOn(
+                FetchClient.prototype,
+                "sendGetRequestAsync"
+            ).mockImplementation((url): any => {
+                if (url.includes("discovery/instance")) {
+                    return DEFAULT_TENANT_DISCOVERY_RESPONSE;
+                } else if (url.includes(".well-known/openid-configuration")) {
+                    return DEFAULT_OPENID_CONFIG_RESPONSE;
+                }
+            });
+            jest.spyOn(
+                NativeInteractionClient.prototype,
+                "acquireToken"
+            ).mockResolvedValue(testTokenResponse);
 
-            const tokenResponse = await redirectClient.handleRedirectPromise();
+            const tokenResponse = await redirectClient.handleRedirectPromise(
+                "",
+                rootMeasurement
+            );
             expect(tokenResponse?.uniqueId).toEqual(testTokenResponse.uniqueId);
             expect(tokenResponse?.tenantId).toEqual(testTokenResponse.tenantId);
             expect(tokenResponse?.scopes).toEqual(testTokenResponse.scopes);
@@ -771,15 +794,19 @@ describe("RedirectClient", () => {
                 base64Encode(JSON.stringify(testTokenReq))
             );
 
-            redirectClient.handleRedirectPromise().catch((e) => {
-                expect(e.errorCode).toEqual(
-                    BrowserAuthErrorMessage.nativeConnectionNotEstablished.code
-                );
-                expect(e.errorMessage).toEqual(
-                    BrowserAuthErrorMessage.nativeConnectionNotEstablished.desc
-                );
-                done();
-            });
+            redirectClient
+                .handleRedirectPromise("", rootMeasurement)
+                .catch((e) => {
+                    expect(e.errorCode).toEqual(
+                        BrowserAuthErrorMessage.nativeConnectionNotEstablished
+                            .code
+                    );
+                    expect(e.errorMessage).toEqual(
+                        BrowserAuthErrorMessage.nativeConnectionNotEstablished
+                            .desc
+                    );
+                    done();
+                });
         });
 
         it("throws no cached authority error if authority is not in cache", (done) => {
@@ -825,15 +852,17 @@ describe("RedirectClient", () => {
                 base64Encode(JSON.stringify(testTokenReq))
             );
 
-            redirectClient.handleRedirectPromise().catch((e) => {
-                expect(e).toMatchObject(
-                    createBrowserAuthError(
-                        BrowserAuthErrorCodes.noCachedAuthorityError
-                    )
-                );
-                expect(window.sessionStorage.length).toEqual(1); // telemetry
-                done();
-            });
+            redirectClient
+                .handleRedirectPromise("", rootMeasurement)
+                .catch((e) => {
+                    expect(e).toMatchObject(
+                        createBrowserAuthError(
+                            BrowserAuthErrorCodes.noCachedAuthorityError
+                        )
+                    );
+                    expect(window.sessionStorage.length).toEqual(1); // telemetry
+                    done();
+                });
         });
 
         it("gets hash from cache and processes error", (done) => {
@@ -879,10 +908,12 @@ describe("RedirectClient", () => {
                 TEST_CONFIG.MSAL_CLIENT_ID
             );
 
-            redirectClient.handleRedirectPromise().catch((err) => {
-                expect(err instanceof ServerError).toBeTruthy();
-                done();
-            });
+            redirectClient
+                .handleRedirectPromise("", rootMeasurement)
+                .catch((err) => {
+                    expect(err instanceof ServerError).toBeTruthy();
+                    done();
+                });
         });
 
         it("processes hash if navigateToLoginRequestUri is false and request origin is the same", async () => {
@@ -965,20 +996,20 @@ describe("RedirectClient", () => {
                 tokenType: AuthenticationScheme.BEARER,
             };
 
-            sinon
-                .stub(FetchClient.prototype, "sendGetRequestAsync")
-                .callsFake((url): any => {
-                    if (url.includes("discovery/instance")) {
-                        return DEFAULT_TENANT_DISCOVERY_RESPONSE;
-                    } else if (
-                        url.includes(".well-known/openid-configuration")
-                    ) {
-                        return DEFAULT_OPENID_CONFIG_RESPONSE;
-                    }
-                });
-            sinon
-                .stub(FetchClient.prototype, "sendPostRequestAsync")
-                .resolves(testServerTokenResponse);
+            jest.spyOn(
+                FetchClient.prototype,
+                "sendGetRequestAsync"
+            ).mockImplementation((url): any => {
+                if (url.includes("discovery/instance")) {
+                    return DEFAULT_TENANT_DISCOVERY_RESPONSE;
+                } else if (url.includes(".well-known/openid-configuration")) {
+                    return DEFAULT_OPENID_CONFIG_RESPONSE;
+                }
+            });
+            jest.spyOn(
+                FetchClient.prototype,
+                "sendPostRequestAsync"
+            ).mockResolvedValue(testServerTokenResponse);
             let pca = new PublicClientApplication({
                 auth: {
                     clientId: TEST_CONFIG.MSAL_CLIENT_ID,
@@ -1011,7 +1042,10 @@ describe("RedirectClient", () => {
                 pca.nativeInternalStorage
             );
 
-            const tokenResponse = await redirectClient.handleRedirectPromise();
+            const tokenResponse = await redirectClient.handleRedirectPromise(
+                "",
+                rootMeasurement
+            );
             expect(tokenResponse?.uniqueId).toEqual(testTokenResponse.uniqueId);
             expect(tokenResponse?.tenantId).toEqual(testTokenResponse.tenantId);
             expect(tokenResponse?.scopes).toEqual(testTokenResponse.scopes);
@@ -1112,20 +1146,20 @@ describe("RedirectClient", () => {
                 tokenType: AuthenticationScheme.BEARER,
             };
 
-            sinon
-                .stub(FetchClient.prototype, "sendGetRequestAsync")
-                .callsFake((url): any => {
-                    if (url.includes("discovery/instance")) {
-                        return DEFAULT_TENANT_DISCOVERY_RESPONSE;
-                    } else if (
-                        url.includes(".well-known/openid-configuration")
-                    ) {
-                        return DEFAULT_OPENID_CONFIG_RESPONSE;
-                    }
-                });
-            sinon
-                .stub(FetchClient.prototype, "sendPostRequestAsync")
-                .resolves(testServerTokenResponse);
+            jest.spyOn(
+                FetchClient.prototype,
+                "sendGetRequestAsync"
+            ).mockImplementation((url): any => {
+                if (url.includes("discovery/instance")) {
+                    return DEFAULT_TENANT_DISCOVERY_RESPONSE;
+                } else if (url.includes(".well-known/openid-configuration")) {
+                    return DEFAULT_OPENID_CONFIG_RESPONSE;
+                }
+            });
+            jest.spyOn(
+                FetchClient.prototype,
+                "sendPostRequestAsync"
+            ).mockResolvedValue(testServerTokenResponse);
             let pca = new PublicClientApplication({
                 auth: {
                     clientId: TEST_CONFIG.MSAL_CLIENT_ID,
@@ -1171,7 +1205,10 @@ describe("RedirectClient", () => {
                 pca.nativeInternalStorage
             );
 
-            const tokenResponse = await redirectClient.handleRedirectPromise();
+            const tokenResponse = await redirectClient.handleRedirectPromise(
+                "",
+                rootMeasurement
+            );
             if (!tokenResponse) {
                 expect(tokenResponse).not.toBe(null);
                 throw new Error("Token Response is null!"); // Throw to resolve Typescript complaints below
@@ -1274,20 +1311,20 @@ describe("RedirectClient", () => {
                 tokenType: AuthenticationScheme.BEARER,
             };
 
-            sinon
-                .stub(FetchClient.prototype, "sendGetRequestAsync")
-                .callsFake((url): any => {
-                    if (url.includes("discovery/instance")) {
-                        return DEFAULT_TENANT_DISCOVERY_RESPONSE;
-                    } else if (
-                        url.includes(".well-known/openid-configuration")
-                    ) {
-                        return DEFAULT_OPENID_CONFIG_RESPONSE;
-                    }
-                });
-            sinon
-                .stub(FetchClient.prototype, "sendPostRequestAsync")
-                .resolves(testServerTokenResponse);
+            jest.spyOn(
+                FetchClient.prototype,
+                "sendGetRequestAsync"
+            ).mockImplementation((url): any => {
+                if (url.includes("discovery/instance")) {
+                    return DEFAULT_TENANT_DISCOVERY_RESPONSE;
+                } else if (url.includes(".well-known/openid-configuration")) {
+                    return DEFAULT_OPENID_CONFIG_RESPONSE;
+                }
+            });
+            jest.spyOn(
+                FetchClient.prototype,
+                "sendPostRequestAsync"
+            ).mockResolvedValue(testServerTokenResponse);
             let pca = new PublicClientApplication({
                 auth: {
                     clientId: TEST_CONFIG.MSAL_CLIENT_ID,
@@ -1320,7 +1357,10 @@ describe("RedirectClient", () => {
                 pca.nativeInternalStorage
             );
 
-            const tokenResponse = await redirectClient.handleRedirectPromise();
+            const tokenResponse = await redirectClient.handleRedirectPromise(
+                "",
+                rootMeasurement
+            );
             expect(tokenResponse?.uniqueId).toEqual(testTokenResponse.uniqueId);
             expect(tokenResponse?.tenantId).toEqual(testTokenResponse.tenantId);
             expect(tokenResponse?.scopes).toEqual(testTokenResponse.scopes);
@@ -1347,7 +1387,9 @@ describe("RedirectClient", () => {
                 `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`,
                 TEST_URIS.TEST_ALTERNATE_REDIR_URI
             );
-            expect(await redirectClient.handleRedirectPromise()).toBe(null);
+            expect(
+                await redirectClient.handleRedirectPromise("", rootMeasurement)
+            ).toBe(null);
         });
 
         it("returns null if interaction is in progress for a different clientId", async () => {
@@ -1374,7 +1416,9 @@ describe("RedirectClient", () => {
             expect(secondInstanceStorage.isInteractionInProgress(false)).toBe(
                 true
             );
-            expect(await redirectClient.handleRedirectPromise()).toBe(null);
+            expect(
+                await redirectClient.handleRedirectPromise("", rootMeasurement)
+            ).toBe(null);
         });
 
         it("navigates and caches hash if navigateToLoginRequestUri is true and interaction type is redirect", async () => {
@@ -1384,22 +1428,23 @@ describe("RedirectClient", () => {
                 `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`,
                 TEST_URIS.TEST_ALTERNATE_REDIR_URI
             );
-            sinon
-                .stub(NavigationClient.prototype, "navigateInternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeTruthy();
-                        expect(options.timeout).toBeGreaterThan(0);
-                        expect(urlNavigate).toEqual(
-                            TEST_URIS.TEST_ALTERNATE_REDIR_URI
-                        );
-                        return Promise.resolve(true);
-                    }
-                );
-            await redirectClient.handleRedirectPromise();
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateInternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeTruthy();
+                    expect(options.timeout).toBeGreaterThan(0);
+                    expect(urlNavigate).toEqual(
+                        TEST_URIS.TEST_ALTERNATE_REDIR_URI
+                    );
+                    return Promise.resolve(true);
+                }
+            );
+            await redirectClient.handleRedirectPromise("", rootMeasurement);
             expect(
                 window.sessionStorage.getItem(
                     `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.URL_HASH}`
@@ -1446,29 +1491,30 @@ describe("RedirectClient", () => {
                 // @ts-ignore
                 pca.nativeInternalStorage
             );
-            sinon.stub(BrowserUtils, "isInIframe").returns(true);
+            jest.spyOn(BrowserUtils, "isInIframe").mockReturnValue(true);
             browserStorage.setInteractionInProgress(true);
             window.location.hash = TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT;
             window.sessionStorage.setItem(
                 `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`,
                 TEST_URIS.TEST_ALTERNATE_REDIR_URI
             );
-            sinon
-                .stub(NavigationClient.prototype, "navigateInternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeTruthy();
-                        expect(options.timeout).toBeGreaterThan(0);
-                        expect(urlNavigate).toEqual(
-                            TEST_URIS.TEST_ALTERNATE_REDIR_URI
-                        );
-                        return Promise.resolve(true);
-                    }
-                );
-            await redirectClient.handleRedirectPromise();
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateInternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeTruthy();
+                    expect(options.timeout).toBeGreaterThan(0);
+                    expect(urlNavigate).toEqual(
+                        TEST_URIS.TEST_ALTERNATE_REDIR_URI
+                    );
+                    return Promise.resolve(true);
+                }
+            );
+            await redirectClient.handleRedirectPromise("", rootMeasurement);
             expect(
                 window.sessionStorage.getItem(
                     `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.URL_HASH}`
@@ -1479,26 +1525,27 @@ describe("RedirectClient", () => {
         it("navigates to root and caches hash if navigateToLoginRequestUri is true", (done) => {
             browserStorage.setInteractionInProgress(true);
             window.location.hash = TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT;
-            sinon
-                .stub(NavigationClient.prototype, "navigateInternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeTruthy();
-                        expect(options.timeout).toBeGreaterThan(0);
-                        expect(urlNavigate).toEqual("https://localhost:8081/");
-                        expect(
-                            window.sessionStorage.getItem(
-                                `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`
-                            )
-                        ).toEqual("https://localhost:8081/");
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
-            redirectClient.handleRedirectPromise();
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateInternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeTruthy();
+                    expect(options.timeout).toBeGreaterThan(0);
+                    expect(urlNavigate).toEqual("https://localhost:8081/");
+                    expect(
+                        window.sessionStorage.getItem(
+                            `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`
+                        )
+                    ).toEqual("https://localhost:8081/");
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
+            redirectClient.handleRedirectPromise("", rootMeasurement);
             expect(
                 window.sessionStorage.getItem(
                     `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.URL_HASH}`
@@ -1513,26 +1560,27 @@ describe("RedirectClient", () => {
                 `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`,
                 "null"
             );
-            sinon
-                .stub(NavigationClient.prototype, "navigateInternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeTruthy();
-                        expect(options.timeout).toBeGreaterThan(0);
-                        expect(urlNavigate).toEqual("https://localhost:8081/");
-                        expect(
-                            window.sessionStorage.getItem(
-                                `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`
-                            )
-                        ).toEqual("https://localhost:8081/");
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
-            redirectClient.handleRedirectPromise();
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateInternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeTruthy();
+                    expect(options.timeout).toBeGreaterThan(0);
+                    expect(urlNavigate).toEqual("https://localhost:8081/");
+                    expect(
+                        window.sessionStorage.getItem(
+                            `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`
+                        )
+                    ).toEqual("https://localhost:8081/");
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
+            redirectClient.handleRedirectPromise("", rootMeasurement);
             expect(
                 window.sessionStorage.getItem(
                     `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.URL_HASH}`
@@ -1548,21 +1596,22 @@ describe("RedirectClient", () => {
                 `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`,
                 loginRequestUrl
             );
-            sinon
-                .stub(NavigationClient.prototype, "navigateInternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeTruthy();
-                        expect(options.timeout).toBeGreaterThan(0);
-                        expect(urlNavigate).toEqual(loginRequestUrl);
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
-            redirectClient.handleRedirectPromise();
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateInternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeTruthy();
+                    expect(options.timeout).toBeGreaterThan(0);
+                    expect(urlNavigate).toEqual(loginRequestUrl);
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
+            redirectClient.handleRedirectPromise("", rootMeasurement);
             expect(
                 window.sessionStorage.getItem(
                     `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.URL_HASH}`
@@ -1579,21 +1628,22 @@ describe("RedirectClient", () => {
                 `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`,
                 loginRequestUrl
             );
-            sinon
-                .stub(NavigationClient.prototype, "navigateInternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeTruthy();
-                        expect(options.timeout).toBeGreaterThan(0);
-                        expect(urlNavigate).toEqual(loginRequestUrl);
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
-            redirectClient.handleRedirectPromise();
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateInternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeTruthy();
+                    expect(options.timeout).toBeGreaterThan(0);
+                    expect(urlNavigate).toEqual(loginRequestUrl);
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
+            redirectClient.handleRedirectPromise("", rootMeasurement);
             expect(
                 window.sessionStorage.getItem(
                     `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.URL_HASH}`
@@ -1619,9 +1669,11 @@ describe("RedirectClient", () => {
                     client_info: TEST_DATA_CLIENT_INFO.TEST_RAW_CLIENT_INFO,
                 });
             });
-            redirectClient.handleRedirectPromise().then(() => {
-                expect(window.location.href).toEqual(loginRequestUrl);
-            });
+            redirectClient
+                .handleRedirectPromise("", rootMeasurement)
+                .then(() => {
+                    expect(window.location.href).toEqual(loginRequestUrl);
+                });
         });
 
         it("replaces custom hash if navigateToLoginRequestUri is true and loginRequestUrl contains custom hash (passed in)", () => {
@@ -1643,7 +1695,8 @@ describe("RedirectClient", () => {
             });
             redirectClient
                 .handleRedirectPromise(
-                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT
+                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT,
+                    rootMeasurement
                 )
                 .then(() => {
                     expect(window.location.href).toEqual(loginRequestUrl);
@@ -1662,7 +1715,7 @@ describe("RedirectClient", () => {
             );
 
             window.location.hash = "testHash";
-            const clearHashSpy = sinon.spy(BrowserUtils, "clearHash");
+            const clearHashSpy = jest.spyOn(BrowserUtils, "clearHash");
 
             jest.spyOn(
                 RedirectClient.prototype,
@@ -1675,10 +1728,12 @@ describe("RedirectClient", () => {
                 });
             });
 
-            redirectClient.handleRedirectPromise().then(() => {
-                expect(clearHashSpy.notCalled).toBe(true);
-                expect(window.location.hash).toEqual("#testHash");
-            });
+            redirectClient
+                .handleRedirectPromise("", rootMeasurement)
+                .then(() => {
+                    expect(clearHashSpy).not.toHaveBeenCalled();
+                    expect(window.location.hash).toEqual("#testHash");
+                });
         });
 
         it("processes hash if navigateToLoginRequestUri is true and loginRequestUrl contains trailing slash", (done) => {
@@ -1702,12 +1757,12 @@ describe("RedirectClient", () => {
                 });
                 done();
             });
-            redirectClient.handleRedirectPromise();
+            redirectClient.handleRedirectPromise("", rootMeasurement);
         });
 
         it("returns null if inside an iframe", (done) => {
             browserStorage.setInteractionInProgress(true);
-            sinon.stub(BrowserUtils, "isInIframe").returns(true);
+            jest.spyOn(BrowserUtils, "isInIframe").mockReturnValue(true);
             const loginRequestUrl = window.location.href + "/testPage";
             window.location.hash = TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT;
             window.sessionStorage.setItem(
@@ -1715,10 +1770,12 @@ describe("RedirectClient", () => {
                 loginRequestUrl
             );
 
-            redirectClient.handleRedirectPromise().then((response) => {
-                expect(response).toBe(null);
-                done();
-            });
+            redirectClient
+                .handleRedirectPromise("", rootMeasurement)
+                .then((response) => {
+                    expect(response).toBe(null);
+                    done();
+                });
         });
 
         it("clears hash if navigateToLoginRequestUri is false and loginRequestUrl contains custom hash", (done) => {
@@ -1771,7 +1828,51 @@ describe("RedirectClient", () => {
                 });
                 done();
             });
-            redirectClient.handleRedirectPromise();
+            redirectClient.handleRedirectPromise("", rootMeasurement);
+        });
+
+        it("mutes no_server_response error when back navigation is detected", async () => {
+            // @ts-ignore
+            window.performance.getEntriesByType = () => {
+                return [{ type: "back_forward" }];
+            };
+
+            browserStorage.setInteractionInProgress(true);
+            const loginRequestUrl = window.location.href;
+            window.location.hash = "";
+            window.sessionStorage.setItem(
+                `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`,
+                loginRequestUrl
+            );
+            const res = await redirectClient.handleRedirectPromise(
+                "",
+                rootMeasurement
+            );
+            expect(res).toBeNull();
+            expect(rootMeasurement.event.errorCode).toBeUndefined();
+        });
+
+        it("does not mute no_server_response error when back navigation is not detected", async () => {
+            // @ts-ignore
+            window.performance.getEntriesByType = () => {
+                return [];
+            };
+
+            browserStorage.setInteractionInProgress(true);
+            const loginRequestUrl = window.location.href;
+            window.location.hash = "";
+            window.sessionStorage.setItem(
+                `${Constants.CACHE_PREFIX}.${TEST_CONFIG.MSAL_CLIENT_ID}.${TemporaryCacheKeys.ORIGIN_URI}`,
+                loginRequestUrl
+            );
+            const res = await redirectClient.handleRedirectPromise(
+                "",
+                rootMeasurement
+            );
+            expect(res).toBeNull();
+            expect(rootMeasurement.event.errorCode).toEqual(
+                "no_server_response"
+            );
         });
     });
 
@@ -1816,16 +1917,17 @@ describe("RedirectClient", () => {
         });
 
         it("navigates to created login url", (done) => {
-            sinon
-                .stub(RedirectHandler.prototype, "initiateAuthRequest")
-                .callsFake(async (navigateUrl): Promise<void> => {
-                    try {
-                        expect(navigateUrl).toEqual(testNavUrl);
-                        return Promise.resolve(done());
-                    } catch (err) {
-                        Promise.reject(err);
-                    }
-                });
+            jest.spyOn(
+                RedirectHandler.prototype,
+                "initiateAuthRequest"
+            ).mockImplementation(async (navigateUrl): Promise<void> => {
+                try {
+                    expect(navigateUrl).toEqual(testNavUrl);
+                    return Promise.resolve(done());
+                } catch (err) {
+                    Promise.reject(err);
+                }
+            });
             jest.spyOn(PkceGenerator, "generatePkceCodes").mockResolvedValue({
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
@@ -1863,18 +1965,19 @@ describe("RedirectClient", () => {
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
 
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const testLogger = new Logger(loggerOptions);
 
             const browserCrypto = new CryptoOps(new Logger({}));
@@ -1934,7 +2037,9 @@ describe("RedirectClient", () => {
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
 
-            const eventSpy = sinon.stub(EventHandler.prototype, "emitEvent");
+            const eventSpy = jest
+                .spyOn(EventHandler.prototype, "emitEvent")
+                .mockImplementation();
 
             const testLogger = new Logger(loggerOptions);
             const browserCrypto = new CryptoOps(new Logger({}));
@@ -1945,72 +2050,69 @@ describe("RedirectClient", () => {
                 testLogger
             );
 
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(browserStorage.isInteractionInProgress()).toBe(
-                            true
-                        );
-                        expect(
-                            browserStorage.getTemporaryCache(
-                                browserStorage.generateStateKey(
-                                    TEST_STATE_VALUES.TEST_STATE_REDIRECT
-                                )
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(browserStorage.isInteractionInProgress()).toBe(true);
+                    expect(
+                        browserStorage.getTemporaryCache(
+                            browserStorage.generateStateKey(
+                                TEST_STATE_VALUES.TEST_STATE_REDIRECT
                             )
-                        ).toEqual(TEST_STATE_VALUES.TEST_STATE_REDIRECT);
-                        expect(
-                            browserStorage.getTemporaryCache(
-                                browserStorage.generateNonceKey(
-                                    TEST_STATE_VALUES.TEST_STATE_REDIRECT
-                                )
+                        )
+                    ).toEqual(TEST_STATE_VALUES.TEST_STATE_REDIRECT);
+                    expect(
+                        browserStorage.getTemporaryCache(
+                            browserStorage.generateNonceKey(
+                                TEST_STATE_VALUES.TEST_STATE_REDIRECT
                             )
-                        ).toEqual(RANDOM_TEST_GUID);
-                        expect(
-                            browserStorage.getTemporaryCache(
-                                browserStorage.generateAuthorityKey(
-                                    TEST_STATE_VALUES.TEST_STATE_REDIRECT
-                                )
+                        )
+                    ).toEqual(RANDOM_TEST_GUID);
+                    expect(
+                        browserStorage.getTemporaryCache(
+                            browserStorage.generateAuthorityKey(
+                                TEST_STATE_VALUES.TEST_STATE_REDIRECT
                             )
-                        ).toEqual(`${Constants.DEFAULT_AUTHORITY}`);
-                        bfCacheCallback({ persisted: true });
-                        expect(
-                            eventSpy.calledWith(
-                                EventType.RESTORE_FROM_BFCACHE,
-                                InteractionType.Redirect
+                        )
+                    ).toEqual(`${Constants.DEFAULT_AUTHORITY}`);
+                    bfCacheCallback({ persisted: true });
+                    expect(eventSpy).toHaveBeenCalledWith(
+                        EventType.RESTORE_FROM_BFCACHE,
+                        InteractionType.Redirect
+                    );
+                    expect(browserStorage.isInteractionInProgress()).toBe(
+                        false
+                    );
+                    expect(
+                        browserStorage.getTemporaryCache(
+                            browserStorage.generateStateKey(
+                                TEST_STATE_VALUES.TEST_STATE_REDIRECT
                             )
-                        ).toBe(true);
-                        expect(browserStorage.isInteractionInProgress()).toBe(
-                            false
-                        );
-                        expect(
-                            browserStorage.getTemporaryCache(
-                                browserStorage.generateStateKey(
-                                    TEST_STATE_VALUES.TEST_STATE_REDIRECT
-                                )
+                        )
+                    ).toEqual(null);
+                    expect(
+                        browserStorage.getTemporaryCache(
+                            browserStorage.generateNonceKey(
+                                TEST_STATE_VALUES.TEST_STATE_REDIRECT
                             )
-                        ).toEqual(null);
-                        expect(
-                            browserStorage.getTemporaryCache(
-                                browserStorage.generateNonceKey(
-                                    TEST_STATE_VALUES.TEST_STATE_REDIRECT
-                                )
+                        )
+                    ).toEqual(null);
+                    expect(
+                        browserStorage.getTemporaryCache(
+                            browserStorage.generateAuthorityKey(
+                                TEST_STATE_VALUES.TEST_STATE_REDIRECT
                             )
-                        ).toEqual(null);
-                        expect(
-                            browserStorage.getTemporaryCache(
-                                browserStorage.generateAuthorityKey(
-                                    TEST_STATE_VALUES.TEST_STATE_REDIRECT
-                                )
-                            )
-                        ).toEqual(null);
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
+                        )
+                    ).toEqual(null);
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
             browserStorage.setInteractionInProgress(true); // This happens in PCA so need to set manually here
             redirectClient.acquireToken(emptyRequest);
         });
@@ -2038,18 +2140,19 @@ describe("RedirectClient", () => {
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
 
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const testLogger = new Logger(loggerOptions);
 
             const browserCrypto = new CryptoOps(new Logger({}));
@@ -2114,18 +2217,19 @@ describe("RedirectClient", () => {
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
 
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const testLogger = new Logger(loggerOptions);
 
             const browserCrypto = new CryptoOps(new Logger({}));
@@ -2183,18 +2287,19 @@ describe("RedirectClient", () => {
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
 
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
 
             const browserCrypto = new CryptoOps(new Logger({}));
             const testLogger = new Logger(loggerOptions);
@@ -2257,9 +2362,10 @@ describe("RedirectClient", () => {
                 errorMessage: "Error in creating a login url",
                 correlationId: TEST_CONFIG.CORRELATION_ID,
             };
-            sinon
-                .stub(AuthorizationCodeClient.prototype, "getAuthCodeUrl")
-                .throws(createBrowserAuthError(testError.errorCode));
+            jest.spyOn(
+                AuthorizationCodeClient.prototype,
+                "getAuthCodeUrl"
+            ).mockRejectedValue(createBrowserAuthError(testError.errorCode));
             try {
                 await redirectClient.acquireToken(emptyRequest);
             } catch (e) {
@@ -2303,7 +2409,7 @@ describe("RedirectClient", () => {
                 PersistentCacheKeys.ADAL_ID_TOKEN,
                 TEST_TOKENS.IDTOKEN_V1
             );
-            const loginUrlSpy = sinon.spy(
+            const loginUrlSpy = jest.spyOn(
                 AuthorizationCodeClient.prototype,
                 "getAuthCodeUrl"
             );
@@ -2311,18 +2417,19 @@ describe("RedirectClient", () => {
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const emptyRequest: CommonAuthorizationUrlRequest = {
                 redirectUri: TEST_URIS.TEST_REDIR_URI,
                 scopes: [],
@@ -2348,7 +2455,7 @@ describe("RedirectClient", () => {
                 codeChallengeMethod: Constants.S256_CODE_CHALLENGE_METHOD,
                 nativeBroker: false,
             };
-            expect(loginUrlSpy.calledWith(validatedRequest)).toBeTruthy();
+            expect(loginUrlSpy).toHaveBeenCalledWith(validatedRequest);
         });
 
         it("Uses adal token from cache if it is present and sets preferred_name as the login hint.", async () => {
@@ -2375,7 +2482,7 @@ describe("RedirectClient", () => {
                 PersistentCacheKeys.ADAL_ID_TOKEN,
                 TEST_TOKENS.IDTOKEN_V1
             );
-            const loginUrlSpy = sinon.spy(
+            const loginUrlSpy = jest.spyOn(
                 AuthorizationCodeClient.prototype,
                 "getAuthCodeUrl"
             );
@@ -2383,18 +2490,19 @@ describe("RedirectClient", () => {
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const emptyRequest: CommonAuthorizationUrlRequest = {
                 redirectUri: TEST_URIS.TEST_REDIR_URI,
                 scopes: [],
@@ -2420,7 +2528,7 @@ describe("RedirectClient", () => {
                 codeChallengeMethod: Constants.S256_CODE_CHALLENGE_METHOD,
                 nativeBroker: false,
             };
-            expect(loginUrlSpy.calledWith(validatedRequest)).toBeTruthy();
+            expect(loginUrlSpy).toHaveBeenCalledWith(validatedRequest);
         });
 
         it("Uses adal token from cache if it is present and sets preferred_name as the login hint when upn is also populated.", async () => {
@@ -2448,7 +2556,7 @@ describe("RedirectClient", () => {
                 PersistentCacheKeys.ADAL_ID_TOKEN,
                 TEST_TOKENS.IDTOKEN_V1
             );
-            const loginUrlSpy = sinon.spy(
+            const loginUrlSpy = jest.spyOn(
                 AuthorizationCodeClient.prototype,
                 "getAuthCodeUrl"
             );
@@ -2456,18 +2564,19 @@ describe("RedirectClient", () => {
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const emptyRequest: CommonAuthorizationUrlRequest = {
                 redirectUri: TEST_URIS.TEST_REDIR_URI,
                 scopes: [],
@@ -2493,7 +2602,7 @@ describe("RedirectClient", () => {
                 codeChallengeMethod: Constants.S256_CODE_CHALLENGE_METHOD,
                 nativeBroker: false,
             };
-            expect(loginUrlSpy.calledWith(validatedRequest)).toBeTruthy();
+            expect(loginUrlSpy).toHaveBeenCalledWith(validatedRequest);
         });
 
         it("Uses msal v1 token from cache if it is present and sets preferred_name as the login hint.", async () => {
@@ -2521,7 +2630,7 @@ describe("RedirectClient", () => {
                 TEST_TOKENS.IDTOKEN_V1,
                 true
             );
-            const loginUrlSpy = sinon.spy(
+            const loginUrlSpy = jest.spyOn(
                 AuthorizationCodeClient.prototype,
                 "getAuthCodeUrl"
             );
@@ -2529,18 +2638,19 @@ describe("RedirectClient", () => {
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const emptyRequest: CommonAuthorizationUrlRequest = {
                 redirectUri: TEST_URIS.TEST_REDIR_URI,
                 scopes: [],
@@ -2566,7 +2676,7 @@ describe("RedirectClient", () => {
                 codeChallengeMethod: Constants.S256_CODE_CHALLENGE_METHOD,
                 nativeBroker: false,
             };
-            expect(loginUrlSpy.calledWith(validatedRequest)).toBeTruthy();
+            expect(loginUrlSpy).toHaveBeenCalledWith(validatedRequest);
         });
 
         it("Does not use adal token from cache if it is present and SSO params have been given.", async () => {
@@ -2582,7 +2692,7 @@ describe("RedirectClient", () => {
                 PersistentCacheKeys.ADAL_ID_TOKEN,
                 TEST_TOKENS.IDTOKEN_V1
             );
-            const loginUrlSpy = sinon.spy(
+            const loginUrlSpy = jest.spyOn(
                 AuthorizationCodeClient.prototype,
                 "getAuthCodeUrl"
             );
@@ -2590,18 +2700,19 @@ describe("RedirectClient", () => {
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const loginRequest: CommonAuthorizationUrlRequest = {
                 redirectUri: TEST_URIS.TEST_REDIR_URI,
                 scopes: [],
@@ -2627,16 +2738,17 @@ describe("RedirectClient", () => {
                 codeChallengeMethod: Constants.S256_CODE_CHALLENGE_METHOD,
                 nativeBroker: false,
             };
-            expect(loginUrlSpy.calledWith(validatedRequest)).toBeTruthy();
+            expect(loginUrlSpy).toHaveBeenCalledWith(validatedRequest);
         });
 
         it("navigates to created login url", (done) => {
-            sinon
-                .stub(RedirectHandler.prototype, "initiateAuthRequest")
-                .callsFake((navigateUrl): Promise<void> => {
-                    expect(navigateUrl).toEqual(testNavUrl);
-                    return Promise.resolve(done());
-                });
+            jest.spyOn(
+                RedirectHandler.prototype,
+                "initiateAuthRequest"
+            ).mockImplementation((navigateUrl): Promise<void> => {
+                expect(navigateUrl).toEqual(testNavUrl);
+                return Promise.resolve(done());
+            });
             jest.spyOn(PkceGenerator, "generatePkceCodes").mockResolvedValue({
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
@@ -2660,25 +2772,24 @@ describe("RedirectClient", () => {
                 done();
             };
 
-            sinon
-                .stub(RedirectHandler.prototype, "initiateAuthRequest")
-                .callsFake(
-                    (
-                        navigateUrl,
-                        {
-                            redirectTimeout: timeout,
-                            redirectStartPage,
-                            onRedirectNavigate: onRedirectNavigateCb,
-                        }
-                    ): Promise<void> => {
-                        expect(onRedirectNavigateCb).toEqual(
-                            onRedirectNavigate
-                        );
-                        expect(navigateUrl).toEqual(testNavUrl);
-                        onRedirectNavigate(navigateUrl);
-                        return Promise.resolve();
+            jest.spyOn(
+                RedirectHandler.prototype,
+                "initiateAuthRequest"
+            ).mockImplementation(
+                (
+                    navigateUrl,
+                    {
+                        redirectTimeout: timeout,
+                        redirectStartPage,
+                        onRedirectNavigate: onRedirectNavigateCb,
                     }
-                );
+                ): Promise<void> => {
+                    expect(onRedirectNavigateCb).toEqual(onRedirectNavigate);
+                    expect(navigateUrl).toEqual(testNavUrl);
+                    onRedirectNavigate(navigateUrl);
+                    return Promise.resolve();
+                }
+            );
             jest.spyOn(PkceGenerator, "generatePkceCodes").mockResolvedValue({
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
@@ -2709,18 +2820,19 @@ describe("RedirectClient", () => {
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const browserCrypto = new CryptoOps(new Logger({}));
             const testLogger = new Logger(loggerOptions);
             const browserStorage = new BrowserCacheManager(
@@ -2770,18 +2882,19 @@ describe("RedirectClient", () => {
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const browserCrypto = new CryptoOps(new Logger({}));
             const testLogger = new Logger(loggerOptions);
             const browserStorage = new BrowserCacheManager(
@@ -2842,9 +2955,10 @@ describe("RedirectClient", () => {
                 "create_login_url_error",
                 "Error in creating a login url"
             );
-            sinon
-                .stub(AuthorizationCodeClient.prototype, "getAuthCodeUrl")
-                .throws(testError);
+            jest.spyOn(
+                AuthorizationCodeClient.prototype,
+                "getAuthCodeUrl"
+            ).mockRejectedValue(testError);
             try {
                 await redirectClient.acquireToken(emptyRequest);
             } catch (e) {
@@ -2890,7 +3004,7 @@ describe("RedirectClient", () => {
                 PersistentCacheKeys.ADAL_ID_TOKEN,
                 TEST_TOKENS.IDTOKEN_V1
             );
-            const acquireTokenUrlSpy = sinon.spy(
+            const acquireTokenUrlSpy = jest.spyOn(
                 AuthorizationCodeClient.prototype,
                 "getAuthCodeUrl"
             );
@@ -2898,18 +3012,19 @@ describe("RedirectClient", () => {
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const emptyRequest: CommonAuthorizationUrlRequest = {
                 redirectUri: TEST_URIS.TEST_REDIR_URI,
                 scopes: [testScope],
@@ -2935,9 +3050,7 @@ describe("RedirectClient", () => {
                 codeChallengeMethod: Constants.S256_CODE_CHALLENGE_METHOD,
                 nativeBroker: false,
             };
-            expect(
-                acquireTokenUrlSpy.calledWith(validatedRequest)
-            ).toBeTruthy();
+            expect(acquireTokenUrlSpy).toHaveBeenCalledWith(validatedRequest);
         });
 
         it("Does not use adal token from cache if it is present and SSO params have been given.", async () => {
@@ -2953,7 +3066,7 @@ describe("RedirectClient", () => {
                 PersistentCacheKeys.ADAL_ID_TOKEN,
                 TEST_TOKENS.IDTOKEN_V1
             );
-            const acquireTokenUrlSpy = sinon.spy(
+            const acquireTokenUrlSpy = jest.spyOn(
                 AuthorizationCodeClient.prototype,
                 "getAuthCodeUrl"
             );
@@ -2961,18 +3074,19 @@ describe("RedirectClient", () => {
                 challenge: TEST_CONFIG.TEST_CHALLENGE,
                 verifier: TEST_CONFIG.TEST_VERIFIER,
             });
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(options.noHistory).toBeFalsy();
-                        expect(urlNavigate).not.toBe("");
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(options.noHistory).toBeFalsy();
+                    expect(urlNavigate).not.toBe("");
+                    return Promise.resolve(true);
+                }
+            );
             const testScope = "testscope";
             const loginRequest: CommonAuthorizationUrlRequest = {
                 redirectUri: TEST_URIS.TEST_REDIR_URI,
@@ -2999,9 +3113,7 @@ describe("RedirectClient", () => {
                 codeChallengeMethod: Constants.S256_CODE_CHALLENGE_METHOD,
                 nativeBroker: false,
             };
-            expect(
-                acquireTokenUrlSpy.calledWith(validatedRequest)
-            ).toBeTruthy();
+            expect(acquireTokenUrlSpy).toHaveBeenCalledWith(validatedRequest);
         });
 
         describe("storeInCache tests", () => {
@@ -3010,8 +3122,8 @@ describe("RedirectClient", () => {
                     TEST_STATE_VALUES.TEST_STATE_REDIRECT
                 );
                 jest.spyOn(
-                    NetworkManager.prototype,
-                    "sendPostRequest"
+                    FetchClient.prototype,
+                    "sendPostRequestAsync"
                 ).mockResolvedValue(TEST_TOKEN_RESPONSE);
                 jest.spyOn(
                     PkceGenerator,
@@ -3037,7 +3149,8 @@ describe("RedirectClient", () => {
                 });
 
                 const tokenResp = await redirectClient.handleRedirectPromise(
-                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT
+                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT,
+                    rootMeasurement
                 );
                 if (!tokenResp) {
                     throw "Response should not be null!";
@@ -3073,7 +3186,8 @@ describe("RedirectClient", () => {
                 });
 
                 const tokenResp = await redirectClient.handleRedirectPromise(
-                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT
+                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT,
+                    rootMeasurement
                 );
                 if (!tokenResp) {
                     throw "Response should not be null!";
@@ -3109,7 +3223,8 @@ describe("RedirectClient", () => {
                 });
 
                 const tokenResp = await redirectClient.handleRedirectPromise(
-                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT
+                    TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT,
+                    rootMeasurement
                 );
                 if (!tokenResp) {
                     throw "Response should not be null!";
@@ -3134,48 +3249,52 @@ describe("RedirectClient", () => {
 
     describe("logout", () => {
         it("passes logoutUri from authModule to window nav util", (done) => {
-            const logoutUriSpy = sinon
-                .stub(AuthorizationCodeClient.prototype, "getLogoutUri")
-                .returns(testLogoutUrl);
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(urlNavigate).toEqual(testLogoutUrl);
-                        expect(options.noHistory).toBeFalsy();
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
+            const logoutUriSpy = jest
+                .spyOn(AuthorizationCodeClient.prototype, "getLogoutUri")
+                .mockReturnValue(testLogoutUrl);
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(logoutUriSpy).toHaveBeenCalledWith(
+                        validatedLogoutRequest
+                    );
+                    expect(urlNavigate).toEqual(testLogoutUrl);
+                    expect(options.noHistory).toBeFalsy();
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
             redirectClient.logout();
             const validatedLogoutRequest: CommonEndSessionRequest = {
                 correlationId: RANDOM_TEST_GUID,
                 postLogoutRedirectUri: TEST_URIS.TEST_REDIR_URI,
             };
-            expect(logoutUriSpy.calledWith(validatedLogoutRequest));
         });
 
         it("includes postLogoutRedirectUri if one is passed", (done) => {
             const postLogoutRedirectUri = "https://localhost:8000/logout";
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(urlNavigate).toContain(
-                            `post_logout_redirect_uri=${encodeURIComponent(
-                                postLogoutRedirectUri
-                            )}`
-                        );
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(urlNavigate).toContain(
+                        `post_logout_redirect_uri=${encodeURIComponent(
+                            postLogoutRedirectUri
+                        )}`
+                    );
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
             redirectClient.logout({
                 postLogoutRedirectUri,
             });
@@ -3183,21 +3302,22 @@ describe("RedirectClient", () => {
 
         it("includes postLogoutRedirectUri if one is configured", async () => {
             const postLogoutRedirectUri = "https://localhost:8000/logout";
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(urlNavigate).toContain(
-                            `post_logout_redirect_uri=${encodeURIComponent(
-                                postLogoutRedirectUri
-                            )}`
-                        );
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(urlNavigate).toContain(
+                        `post_logout_redirect_uri=${encodeURIComponent(
+                            postLogoutRedirectUri
+                        )}`
+                    );
+                    return Promise.resolve(true);
+                }
+            );
 
             let pca = new PublicClientApplication({
                 auth: {
@@ -3234,20 +3354,21 @@ describe("RedirectClient", () => {
             redirectClient.logout();
         });
 
-        it("doesn't include postLogoutRedirectUri if null is configured", async () => {
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(urlNavigate).not.toContain(
-                            `post_logout_redirect_uri`
-                        );
-                        return Promise.resolve(true);
-                    }
-                );
+        it("does not include postLogoutRedirectUri if null is configured", async () => {
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(urlNavigate).not.toContain(
+                        `post_logout_redirect_uri`
+                    );
+                    return Promise.resolve(true);
+                }
+            );
 
             let pca = new PublicClientApplication({
                 auth: {
@@ -3282,62 +3403,65 @@ describe("RedirectClient", () => {
             redirectClient.logout();
         });
 
-        it("doesn't include postLogoutRedirectUri if null is set on request", (done) => {
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(urlNavigate).not.toContain(
-                            "post_logout_redirect_uri"
-                        );
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
+        it("does not include postLogoutRedirectUri if null is set on request", (done) => {
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(urlNavigate).not.toContain(
+                        "post_logout_redirect_uri"
+                    );
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
             redirectClient.logout({
                 postLogoutRedirectUri: null,
             });
         });
 
         it("includes postLogoutRedirectUri as current page if none is set on request", (done) => {
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(urlNavigate).toContain(
-                            `post_logout_redirect_uri=${encodeURIComponent(
-                                "https://localhost:8081/index.html"
-                            )}`
-                        );
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(urlNavigate).toContain(
+                        `post_logout_redirect_uri=${encodeURIComponent(
+                            "https://localhost:8081/index.html"
+                        )}`
+                    );
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
             redirectClient.logout();
         });
 
         it("includes logoutHint if it is set on request", (done) => {
             const logoutHint = "test@user.com";
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(urlNavigate).toContain(
-                            `logout_hint=${encodeURIComponent(logoutHint)}`
-                        );
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(urlNavigate).toContain(
+                        `logout_hint=${encodeURIComponent(logoutHint)}`
+                    );
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
             redirectClient.logout({ logoutHint: logoutHint });
         });
 
@@ -3377,20 +3501,21 @@ describe("RedirectClient", () => {
 
             browserStorage.setAccount(testAccount);
 
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(urlNavigate).toContain(
-                            `logout_hint=${encodeURIComponent(logoutHint)}`
-                        );
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(urlNavigate).toContain(
+                        `logout_hint=${encodeURIComponent(logoutHint)}`
+                    );
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
             redirectClient.logout({ account: testAccountInfo });
         });
 
@@ -3431,23 +3556,24 @@ describe("RedirectClient", () => {
 
             browserStorage.setAccount(testAccount);
 
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(urlNavigate).toContain(
-                            `logout_hint=${encodeURIComponent(logoutHint)}`
-                        );
-                        expect(urlNavigate).not.toContain(
-                            `logout_hint=${encodeURIComponent(loginHint)}`
-                        );
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(urlNavigate).toContain(
+                        `logout_hint=${encodeURIComponent(logoutHint)}`
+                    );
+                    expect(urlNavigate).not.toContain(
+                        `logout_hint=${encodeURIComponent(loginHint)}`
+                    );
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
             redirectClient.logout({
                 account: testAccountInfo,
                 logoutHint: logoutHint,
@@ -3455,21 +3581,22 @@ describe("RedirectClient", () => {
         });
 
         it("doesnt navigate if onRedirectNavigate returns false", (done) => {
-            const logoutUriSpy = sinon
-                .stub(AuthorizationCodeClient.prototype, "getLogoutUri")
-                .returns(testLogoutUrl);
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        // If onRedirectNavigate does not stop navigatation, this will be called, failing the test as done will be invoked twice
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
+            const logoutUriSpy = jest
+                .spyOn(AuthorizationCodeClient.prototype, "getLogoutUri")
+                .mockReturnValue(testLogoutUrl);
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    // If onRedirectNavigate does not stop navigatation, this will be called, failing the test as done will be invoked twice
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
             browserStorage.setInteractionInProgress(true);
             redirectClient
                 .logout({
@@ -3487,7 +3614,9 @@ describe("RedirectClient", () => {
                         correlationId: RANDOM_TEST_GUID,
                         postLogoutRedirectUri: TEST_URIS.TEST_REDIR_URI,
                     };
-                    expect(logoutUriSpy.calledWith(validatedLogoutRequest));
+                    expect(logoutUriSpy).toHaveBeenCalledWith(
+                        expect.objectContaining(validatedLogoutRequest)
+                    );
                     done();
                 });
         });
@@ -3514,21 +3643,22 @@ describe("RedirectClient", () => {
 
             browserStorage.setAccount(testAccount);
 
-            const logoutUriSpy = sinon
-                .stub(AuthorizationCodeClient.prototype, "getLogoutUri")
-                .returns(testLogoutUrl);
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        // If onRedirectNavigate does not stop navigatation, this will be called, failing the test as done will be invoked twice
-                        done();
-                        return Promise.resolve(true);
-                    }
-                );
+            const logoutUriSpy = jest
+                .spyOn(AuthorizationCodeClient.prototype, "getLogoutUri")
+                .mockReturnValue(testLogoutUrl);
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    // If onRedirectNavigate does not stop navigatation, this will be called, failing the test as done will be invoked twice
+                    done();
+                    return Promise.resolve(true);
+                }
+            );
             browserStorage.setInteractionInProgress(true);
             redirectClient
                 .logout({
@@ -3547,30 +3677,33 @@ describe("RedirectClient", () => {
                         correlationId: RANDOM_TEST_GUID,
                         postLogoutRedirectUri: TEST_URIS.TEST_REDIR_URI,
                     };
-                    expect(logoutUriSpy.calledWith(validatedLogoutRequest));
+                    expect(logoutUriSpy).toHaveBeenCalledWith(
+                        expect.objectContaining(validatedLogoutRequest)
+                    );
                     done();
                 });
         });
 
         it("does navigate if onRedirectNavigate returns true", (done) => {
-            const logoutUriSpy = sinon
-                .stub(AuthorizationCodeClient.prototype, "getLogoutUri")
-                .returns(testLogoutUrl);
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(
-                            browserStorage.getInteractionInProgress()
-                        ).toBeTruthy();
-                        expect(urlNavigate).toEqual(testLogoutUrl);
+            const logoutUriSpy = jest
+                .spyOn(AuthorizationCodeClient.prototype, "getLogoutUri")
+                .mockReturnValue(testLogoutUrl);
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(
+                        browserStorage.getInteractionInProgress()
+                    ).toBeTruthy();
+                    expect(urlNavigate).toEqual(testLogoutUrl);
 
-                        return Promise.resolve(true);
-                    }
-                );
+                    return Promise.resolve(true);
+                }
+            );
             browserStorage.setInteractionInProgress(true);
             redirectClient
                 .logout({
@@ -3591,7 +3724,9 @@ describe("RedirectClient", () => {
                         correlationId: RANDOM_TEST_GUID,
                         postLogoutRedirectUri: TEST_URIS.TEST_REDIR_URI,
                     };
-                    expect(logoutUriSpy.calledWith(validatedLogoutRequest));
+                    expect(logoutUriSpy).toHaveBeenCalledWith(
+                        expect.objectContaining(validatedLogoutRequest)
+                    );
                     done();
                 });
         });
@@ -3618,21 +3753,22 @@ describe("RedirectClient", () => {
 
             browserStorage.setAccount(testAccount);
 
-            const logoutUriSpy = sinon
-                .stub(AuthorizationCodeClient.prototype, "getLogoutUri")
-                .returns(testLogoutUrl);
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        expect(urlNavigate).toEqual(testLogoutUrl);
+            const logoutUriSpy = jest
+                .spyOn(AuthorizationCodeClient.prototype, "getLogoutUri")
+                .mockReturnValue(testLogoutUrl);
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    expect(urlNavigate).toEqual(testLogoutUrl);
 
-                        return Promise.resolve(true);
-                    }
-                );
+                    return Promise.resolve(true);
+                }
+            );
             browserStorage.setInteractionInProgress(true);
             redirectClient
                 .logout({
@@ -3654,7 +3790,9 @@ describe("RedirectClient", () => {
                         correlationId: RANDOM_TEST_GUID,
                         postLogoutRedirectUri: TEST_URIS.TEST_REDIR_URI,
                     };
-                    expect(logoutUriSpy.calledWith(validatedLogoutRequest));
+                    expect(logoutUriSpy).toHaveBeenCalledWith(
+                        expect.objectContaining(validatedLogoutRequest)
+                    );
                     done();
                 });
         });
@@ -3663,27 +3801,26 @@ describe("RedirectClient", () => {
             const testError = createBrowserAuthError(
                 BrowserAuthErrorCodes.emptyNavigateUri
             );
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake((): Promise<boolean> => {
-                    return Promise.reject(testError);
-                });
-            const eventSpy = sinon.spy(EventHandler.prototype, "emitEvent");
-            const telemetrySpy = sinon.spy(
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation((): Promise<boolean> => {
+                return Promise.reject(testError);
+            });
+            const eventSpy = jest.spyOn(EventHandler.prototype, "emitEvent");
+            const telemetrySpy = jest.spyOn(
                 ServerTelemetryManager.prototype,
                 "cacheFailedRequest"
             );
             redirectClient.logout().catch((e) => {
                 expect(e).toMatchObject(testError);
-                expect(telemetrySpy.calledWith(testError)).toBe(true);
-                expect(
-                    eventSpy.calledWith(
-                        EventType.LOGOUT_FAILURE,
-                        InteractionType.Redirect,
-                        null,
-                        testError
-                    )
-                ).toBe(true);
+                expect(telemetrySpy).toHaveBeenCalledWith(testError);
+                expect(eventSpy).toHaveBeenCalledWith(
+                    EventType.LOGOUT_FAILURE,
+                    InteractionType.Redirect,
+                    null,
+                    testError
+                );
                 done();
             });
         });
@@ -3693,11 +3830,12 @@ describe("RedirectClient", () => {
                 errorCode: "Unexpected error",
                 errorDesc: "Unexpected error",
             };
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake((): Promise<boolean> => {
-                    return Promise.reject(testError);
-                });
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation((): Promise<boolean> => {
+                return Promise.reject(testError);
+            });
             redirectClient.logout().catch((e) => {
                 expect(e).toMatchObject(testError);
                 expect(e).not.toHaveProperty("correlationId");
@@ -3711,6 +3849,7 @@ describe("RedirectClient", () => {
             const testAccountInfo: AccountInfo = {
                 ...testAccountEntity.getAccountInfo(),
                 idTokenClaims: ID_TOKEN_CLAIMS,
+                idToken: TEST_TOKENS.IDTOKEN_V2,
             };
 
             const testIdToken: IdTokenEntity = buildIdToken(
@@ -3725,16 +3864,17 @@ describe("RedirectClient", () => {
                 account: testAccountInfo,
             };
 
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake(
-                    (
-                        urlNavigate: string,
-                        options: NavigationOptions
-                    ): Promise<boolean> => {
-                        return Promise.resolve(true);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation(
+                (
+                    urlNavigate: string,
+                    options: NavigationOptions
+                ): Promise<boolean> => {
+                    return Promise.resolve(true);
+                }
+            );
 
             browserStorage.setAccount(testAccountEntity);
             browserStorage.setIdTokenCredential(testIdToken);

@@ -3,8 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import sinon from "sinon";
-import { BrowserAuthErrorMessage } from "../../src/error/BrowserAuthError";
+import { BrowserAuthErrorMessage } from "../../src/error/BrowserAuthError.js";
 import {
     TEST_CONFIG,
     TEST_TOKENS,
@@ -13,8 +12,8 @@ import {
     TEST_URIS,
     TEST_STATE_VALUES,
     DEFAULT_OPENID_CONFIG_RESPONSE,
-} from "../utils/StringConstants";
-import { CacheOptions } from "../../src/config/Configuration";
+} from "../utils/StringConstants.js";
+import { CacheOptions } from "../../src/config/Configuration.js";
 import {
     Constants,
     PersistentCacheKeys,
@@ -34,18 +33,25 @@ import {
     CredentialType,
     ProtocolMode,
     CacheHelpers,
+    CacheError,
+    CacheErrorCodes,
+    CacheManager,
+    CacheRecord,
+    PerformanceEvent,
 } from "@azure/msal-common";
 import {
     BrowserCacheLocation,
     InteractionType,
     TemporaryCacheKeys,
-} from "../../src/utils/BrowserConstants";
-import { CryptoOps } from "../../src/crypto/CryptoOps";
-import { DatabaseStorage } from "../../src/cache/DatabaseStorage";
-import { BrowserCacheManager } from "../../src/cache/BrowserCacheManager";
-import { BrowserStateObject } from "../../src/utils/BrowserProtocolUtils";
-import { base64Decode } from "../../src/encode/Base64Decode";
-import { getDefaultPerformanceClient } from "../utils/TelemetryUtils";
+} from "../../src/utils/BrowserConstants.js";
+import { CryptoOps } from "../../src/crypto/CryptoOps.js";
+import { DatabaseStorage } from "../../src/cache/DatabaseStorage.js";
+import { BrowserCacheManager } from "../../src/cache/BrowserCacheManager.js";
+import { BrowserStateObject } from "../../src/utils/BrowserProtocolUtils.js";
+import { base64Decode } from "../../src/encode/Base64Decode.js";
+import { getDefaultPerformanceClient } from "../utils/TelemetryUtils.js";
+import { BrowserPerformanceClient } from "../../src/telemetry/BrowserPerformanceClient.js";
+import { CookieStorage } from "../../src/cache/CookieStorage.js";
 
 describe("BrowserCacheManager tests", () => {
     let cacheConfig: Required<CacheOptions>;
@@ -73,7 +79,6 @@ describe("BrowserCacheManager tests", () => {
 
     afterEach(() => {
         jest.restoreAllMocks();
-        sinon.restore();
         window.sessionStorage.clear();
         window.localStorage.clear();
     });
@@ -130,7 +135,6 @@ describe("BrowserCacheManager tests", () => {
             expect(browserStorage.setItem).not.toBeNull();
             expect(browserStorage.getItem).not.toBeNull();
             expect(browserStorage.removeItem).not.toBeNull();
-            expect(browserStorage.containsKey).not.toBeNull();
             expect(browserStorage.getKeys).not.toBeNull();
             expect(browserStorage.clear).not.toBeNull();
         });
@@ -347,7 +351,8 @@ describe("BrowserCacheManager tests", () => {
                     cloudDiscoveryMetadata: "",
                     knownAuthorities: [],
                 },
-                logger
+                logger,
+                TEST_CONFIG.CORRELATION_ID
             );
             // Pre-populate localstorage with accounts
             const testAccount = AccountEntity.createAccount(
@@ -425,11 +430,13 @@ describe("BrowserCacheManager tests", () => {
                     cloudDiscoveryMetadata: "",
                     knownAuthorities: [],
                 },
-                logger
+                logger,
+                TEST_CONFIG.CORRELATION_ID
             );
-            sinon
-                .stub(Authority.prototype, "getPreferredCache")
-                .returns("login.microsoftonline.com");
+            jest.spyOn(
+                Authority.prototype,
+                "getPreferredCache"
+            ).mockReturnValue("login.microsoftonline.com");
             cacheConfig.cacheLocation = BrowserCacheLocation.LocalStorage;
             browserLocalStorage = new BrowserCacheManager(
                 TEST_CONFIG.MSAL_CLIENT_ID,
@@ -490,13 +497,6 @@ describe("BrowserCacheManager tests", () => {
             expect(
                 browserSessionStorage.getTemporaryCache("cacheKey", true)
             ).toBeNull();
-        });
-
-        it("containsKey()", () => {
-            browserSessionStorage.setTemporaryCache("cacheKey", cacheVal, true);
-            browserLocalStorage.setItem(msalCacheKey, cacheVal);
-            expect(browserSessionStorage.containsKey(msalCacheKey)).toBe(true);
-            expect(browserLocalStorage.containsKey(msalCacheKey)).toBe(true);
         });
 
         it("getKeys()", () => {
@@ -1105,10 +1105,12 @@ describe("BrowserCacheManager tests", () => {
                     ).toEqual(testAT4);
 
                     browserSessionStorage.clearTokensAndKeysWithClaims(
-                        getDefaultPerformanceClient()
+                        getDefaultPerformanceClient(),
+                        "test-correlation-id"
                     );
                     browserLocalStorage.clearTokensAndKeysWithClaims(
-                        getDefaultPerformanceClient()
+                        getDefaultPerformanceClient(),
+                        "test-correlation-id"
                     );
 
                     expect(
@@ -1302,36 +1304,25 @@ describe("BrowserCacheManager tests", () => {
                 });
 
                 it("getAppMetadata returns AppMetadataEntity", () => {
-                    const testAppMetadata =
-                        AppMetadataEntity.createAppMetadataEntity(
-                            "clientId",
-                            "environment",
-                            "familyid"
-                        );
+                    const testAppMetadata = {
+                        clientId: TEST_CONFIG.MSAL_CLIENT_ID,
+                        environment: "login.microsoftonline.com",
+                        familyId: "1",
+                    };
 
                     browserLocalStorage.setAppMetadata(testAppMetadata);
                     browserSessionStorage.setAppMetadata(testAppMetadata);
 
                     expect(
                         browserSessionStorage.getAppMetadata(
-                            testAppMetadata.generateAppMetadataKey()
-                        )
-                    ).toEqual(testAppMetadata);
-                    expect(
-                        browserSessionStorage.getAppMetadata(
-                            testAppMetadata.generateAppMetadataKey()
-                        )
-                    ).toBeInstanceOf(AppMetadataEntity);
-                    expect(
-                        browserLocalStorage.getAppMetadata(
-                            testAppMetadata.generateAppMetadataKey()
+                            CacheHelpers.generateAppMetadataKey(testAppMetadata)
                         )
                     ).toEqual(testAppMetadata);
                     expect(
                         browserLocalStorage.getAppMetadata(
-                            testAppMetadata.generateAppMetadataKey()
+                            CacheHelpers.generateAppMetadataKey(testAppMetadata)
                         )
-                    ).toBeInstanceOf(AppMetadataEntity);
+                    ).toEqual(testAppMetadata);
                 });
             });
 
@@ -1404,27 +1395,33 @@ describe("BrowserCacheManager tests", () => {
 
             describe("AuthorityMetadata", () => {
                 const key = `authority-metadata-${TEST_CONFIG.MSAL_CLIENT_ID}-${Constants.DEFAULT_AUTHORITY_HOST}`;
-                const testObj: AuthorityMetadataEntity =
-                    new AuthorityMetadataEntity();
-                testObj.aliases = [Constants.DEFAULT_AUTHORITY_HOST];
-                testObj.preferred_cache = Constants.DEFAULT_AUTHORITY_HOST;
-                testObj.preferred_network = Constants.DEFAULT_AUTHORITY_HOST;
-                testObj.canonical_authority = Constants.DEFAULT_AUTHORITY;
-                testObj.authorization_endpoint =
-                    //@ts-ignore
-                    DEFAULT_OPENID_CONFIG_RESPONSE.body.authorization_endpoint;
-                testObj.token_endpoint =
-                    //@ts-ignore
-                    DEFAULT_OPENID_CONFIG_RESPONSE.body.token_endpoint;
-                testObj.end_session_endpoint =
-                    //@ts-ignore
-                    DEFAULT_OPENID_CONFIG_RESPONSE.body.end_session_endpoint;
-                //@ts-ignore
-                testObj.issuer = DEFAULT_OPENID_CONFIG_RESPONSE.body.issuer;
-                //@ts-ignore
-                testObj.jwks_uri = DEFAULT_OPENID_CONFIG_RESPONSE.body.jwks_uri;
-                testObj.aliasesFromNetwork = false;
-                testObj.endpointsFromNetwork = false;
+                const testObj: AuthorityMetadataEntity = {
+                    aliases: [Constants.DEFAULT_AUTHORITY_HOST],
+                    preferred_cache: Constants.DEFAULT_AUTHORITY_HOST,
+                    preferred_network: Constants.DEFAULT_AUTHORITY_HOST,
+                    canonical_authority: Constants.DEFAULT_AUTHORITY,
+                    authorization_endpoint:
+                        //@ts-ignore
+                        DEFAULT_OPENID_CONFIG_RESPONSE.body
+                            .authorization_endpoint,
+                    token_endpoint:
+                        //@ts-ignore
+                        DEFAULT_OPENID_CONFIG_RESPONSE.body.token_endpoint,
+                    end_session_endpoint:
+                        //@ts-ignore
+                        DEFAULT_OPENID_CONFIG_RESPONSE.body
+                            .end_session_endpoint,
+                    issuer:
+                        //@ts-ignore
+                        DEFAULT_OPENID_CONFIG_RESPONSE.body.issuer,
+                    jwks_uri:
+                        //@ts-ignore
+                        DEFAULT_OPENID_CONFIG_RESPONSE.body.jwks_uri,
+                    aliasesFromNetwork: false,
+                    endpointsFromNetwork: false,
+                    expiresAt:
+                        CacheHelpers.generateAuthorityMetadataExpiresAt(),
+                };
 
                 it("getAuthorityMetadata() returns null if key is not in cache", () => {
                     expect(
@@ -1436,14 +1433,14 @@ describe("BrowserCacheManager tests", () => {
                 });
 
                 it("getAuthorityMetadata() returns null if isAuthorityMetadataEntity returns false", () => {
-                    sinon
-                        .stub(
-                            AuthorityMetadataEntity,
-                            "isAuthorityMetadataEntity"
-                        )
-                        .returns(false);
-                    browserSessionStorage.setAuthorityMetadata(key, testObj);
-                    browserLocalStorage.setAuthorityMetadata(key, testObj);
+                    browserSessionStorage.setAuthorityMetadata(key, {
+                        // @ts-ignore
+                        invalidKey: "invalidValue",
+                    });
+                    browserLocalStorage.setAuthorityMetadata(key, {
+                        // @ts-ignore
+                        invalidKey: "invalidValue",
+                    });
                     expect(
                         browserSessionStorage.getAuthorityMetadata(key)
                     ).toBeNull();
@@ -1468,8 +1465,6 @@ describe("BrowserCacheManager tests", () => {
                     expect(
                         browserLocalStorage.getAuthorityMetadata(key)
                     ).toEqual(testObj);
-                    expect(browserSessionStorage.containsKey(key)).toBe(false);
-                    expect(browserLocalStorage.containsKey(key)).toBe(false);
                     expect(
                         browserLocalStorage.getAuthorityMetadataKeys()
                     ).toEqual(expect.arrayContaining([key]));
@@ -1561,8 +1556,9 @@ describe("BrowserCacheManager tests", () => {
 
                 it("getThrottlingCache returns ThrottlingEntity", () => {
                     const testKey = "throttling";
-                    const testVal = new ThrottlingEntity();
-                    testVal.throttleTime = 60;
+                    const testVal = {
+                        throttleTime: 60,
+                    };
 
                     browserLocalStorage.setThrottlingCache(testKey, testVal);
                     browserSessionStorage.setThrottlingCache(testKey, testVal);
@@ -1570,31 +1566,96 @@ describe("BrowserCacheManager tests", () => {
                     expect(
                         browserSessionStorage.getThrottlingCache(testKey)
                     ).toEqual(testVal);
-                    expect(
-                        browserSessionStorage.getThrottlingCache(testKey)
-                    ).toBeInstanceOf(ThrottlingEntity);
+
                     expect(
                         browserLocalStorage.getThrottlingCache(testKey)
                     ).toEqual(testVal);
-                    expect(
-                        browserLocalStorage.getThrottlingCache(testKey)
-                    ).toBeInstanceOf(ThrottlingEntity);
                 });
             });
 
-            describe("RedirectRequestContext", () => {
-                it("Returns redirect request context as null if context not set in browser cache", () => {
-                    expect(
-                        browserSessionStorage.getRedirectRequestContext()
-                    ).toEqual(null);
-                });
+            describe("saveCacheRecord", () => {
+                it("saveCacheRecord re-throws and captures telemetry", (done) => {
+                    const cacheError = new CacheError(
+                        CacheErrorCodes.cacheQuotaExceededErrorCode
+                    );
+                    const testAppConfig = {
+                        auth: {
+                            clientId: TEST_CONFIG.MSAL_CLIENT_ID,
+                        },
+                    };
+                    const perfClient = new BrowserPerformanceClient(
+                        testAppConfig
+                    );
 
-                it("Returns redirect request context if context set in browser cache", () => {
-                    const testVal = "testId";
-                    browserSessionStorage.setRedirectRequestContext(testVal);
-                    expect(
-                        browserSessionStorage.getRedirectRequestContext()
-                    ).toEqual(testVal);
+                    const testAccessToken =
+                        CacheHelpers.createAccessTokenEntity(
+                            "homeAccountId",
+                            "environment",
+                            TEST_TOKENS.ACCESS_TOKEN,
+                            "client-id",
+                            "tenantId",
+                            "openid",
+                            1000,
+                            1000,
+                            browserCrypto.base64Decode,
+                            500,
+                            AuthenticationScheme.BEARER,
+                            "oboAssertion"
+                        );
+
+                    const cacheManager = new BrowserCacheManager(
+                        TEST_CONFIG.MSAL_CLIENT_ID,
+                        cacheConfig,
+                        browserCrypto,
+                        logger,
+                        undefined,
+                        perfClient
+                    );
+                    cacheManager.setAccessTokenCredential(testAccessToken);
+
+                    jest.spyOn(
+                        CacheManager.prototype,
+                        "saveCacheRecord"
+                    ).mockRejectedValue(cacheError);
+
+                    // @ts-ignore
+                    const callbackId = perfClient.addPerformanceCallback(
+                        (events: PerformanceEvent[]) => {
+                            expect(events.length).toEqual(1);
+                            const event = events[0];
+                            expect(event.name).toBe("test-measurement");
+                            expect(event.correlationId).toEqual(
+                                "test-correlation-id"
+                            );
+                            expect(event.success).toBeFalsy();
+                            expect(event.errorCode).toEqual(
+                                CacheErrorCodes.cacheQuotaExceededErrorCode
+                            );
+                            expect(event.cacheIdCount).toEqual(0);
+                            expect(event.cacheRtCount).toEqual(0);
+                            expect(event.cacheAtCount).toEqual(1);
+                            // @ts-ignore
+                            perfClient.removePerformanceCallback(callbackId);
+                            done();
+                        }
+                    );
+
+                    const measurement = perfClient.startMeasurement(
+                        "test-measurement",
+                        "test-correlation-id"
+                    );
+
+                    cacheManager
+                        .saveCacheRecord({}, undefined, "test-correlation-id")
+                        .then(() => {
+                            throw new Error(
+                                "saveCacheRecord should have thrown"
+                            );
+                        })
+                        .catch((e) => {
+                            expect(e).toBeInstanceOf(CacheError);
+                            measurement.end({ success: false }, e);
+                        });
                 });
             });
         });
@@ -1624,11 +1685,13 @@ describe("BrowserCacheManager tests", () => {
                     cloudDiscoveryMetadata: "",
                     knownAuthorities: [],
                 },
-                logger
+                logger,
+                TEST_CONFIG.CORRELATION_ID
             );
-            sinon
-                .stub(Authority.prototype, "getPreferredCache")
-                .returns("login.microsoftonline.com");
+            jest.spyOn(
+                Authority.prototype,
+                "getPreferredCache"
+            ).mockReturnValue("login.microsoftonline.com");
             cacheConfig.cacheLocation = BrowserCacheLocation.LocalStorage;
             cacheConfig.temporaryCacheLocation =
                 BrowserCacheLocation.LocalStorage;
@@ -1684,13 +1747,6 @@ describe("BrowserCacheManager tests", () => {
             expect(
                 browserSessionStorage.getTemporaryCache("cacheKey", true)
             ).toBeNull();
-        });
-
-        it("containsKey()", () => {
-            browserSessionStorage.setTemporaryCache("cacheKey", cacheVal, true);
-            browserLocalStorage.setItem(msalCacheKey, cacheVal);
-            expect(browserSessionStorage.containsKey(msalCacheKey)).toBe(true);
-            expect(browserLocalStorage.containsKey(msalCacheKey)).toBe(true);
         });
 
         it("clear()", async () => {
@@ -2210,36 +2266,25 @@ describe("BrowserCacheManager tests", () => {
                 });
 
                 it("getAppMetadata returns AppMetadataEntity", () => {
-                    const testAppMetadata =
-                        AppMetadataEntity.createAppMetadataEntity(
-                            "clientId",
-                            "environment",
-                            "familyid"
-                        );
+                    const testAppMetadata = {
+                        clientId: TEST_CONFIG.MSAL_CLIENT_ID,
+                        environment: "login.microsoftonline.com",
+                        familyId: "1",
+                    };
 
                     browserLocalStorage.setAppMetadata(testAppMetadata);
                     browserSessionStorage.setAppMetadata(testAppMetadata);
 
                     expect(
                         browserSessionStorage.getAppMetadata(
-                            testAppMetadata.generateAppMetadataKey()
-                        )
-                    ).toEqual(testAppMetadata);
-                    expect(
-                        browserSessionStorage.getAppMetadata(
-                            testAppMetadata.generateAppMetadataKey()
-                        )
-                    ).toBeInstanceOf(AppMetadataEntity);
-                    expect(
-                        browserLocalStorage.getAppMetadata(
-                            testAppMetadata.generateAppMetadataKey()
+                            CacheHelpers.generateAppMetadataKey(testAppMetadata)
                         )
                     ).toEqual(testAppMetadata);
                     expect(
                         browserLocalStorage.getAppMetadata(
-                            testAppMetadata.generateAppMetadataKey()
+                            CacheHelpers.generateAppMetadataKey(testAppMetadata)
                         )
-                    ).toBeInstanceOf(AppMetadataEntity);
+                    ).toEqual(testAppMetadata);
                 });
             });
 
@@ -2312,27 +2357,33 @@ describe("BrowserCacheManager tests", () => {
 
             describe("AuthorityMetadata", () => {
                 const key = `authority-metadata-${TEST_CONFIG.MSAL_CLIENT_ID}-${Constants.DEFAULT_AUTHORITY_HOST}`;
-                const testObj: AuthorityMetadataEntity =
-                    new AuthorityMetadataEntity();
-                testObj.aliases = [Constants.DEFAULT_AUTHORITY_HOST];
-                testObj.preferred_cache = Constants.DEFAULT_AUTHORITY_HOST;
-                testObj.preferred_network = Constants.DEFAULT_AUTHORITY_HOST;
-                testObj.canonical_authority = Constants.DEFAULT_AUTHORITY;
-                testObj.authorization_endpoint =
-                    // @ts-ignore
-                    DEFAULT_OPENID_CONFIG_RESPONSE.body.authorization_endpoint;
-                testObj.token_endpoint =
-                    // @ts-ignore
-                    DEFAULT_OPENID_CONFIG_RESPONSE.body.token_endpoint;
-                testObj.end_session_endpoint =
-                    // @ts-ignore
-                    DEFAULT_OPENID_CONFIG_RESPONSE.body.end_session_endpoint;
-                // @ts-ignore
-                testObj.issuer = DEFAULT_OPENID_CONFIG_RESPONSE.body.issuer;
-                // @ts-ignore
-                testObj.jwks_uri = DEFAULT_OPENID_CONFIG_RESPONSE.body.jwks_uri;
-                testObj.aliasesFromNetwork = false;
-                testObj.endpointsFromNetwork = false;
+                const testObj: AuthorityMetadataEntity = {
+                    aliases: [Constants.DEFAULT_AUTHORITY_HOST],
+                    preferred_cache: Constants.DEFAULT_AUTHORITY_HOST,
+                    preferred_network: Constants.DEFAULT_AUTHORITY_HOST,
+                    canonical_authority: Constants.DEFAULT_AUTHORITY,
+                    authorization_endpoint:
+                        //@ts-ignore
+                        DEFAULT_OPENID_CONFIG_RESPONSE.body
+                            .authorization_endpoint,
+                    token_endpoint:
+                        //@ts-ignore
+                        DEFAULT_OPENID_CONFIG_RESPONSE.body.token_endpoint,
+                    end_session_endpoint:
+                        //@ts-ignore
+                        DEFAULT_OPENID_CONFIG_RESPONSE.body
+                            .end_session_endpoint,
+                    issuer:
+                        //@ts-ignore
+                        DEFAULT_OPENID_CONFIG_RESPONSE.body.issuer,
+                    jwks_uri:
+                        //@ts-ignore
+                        DEFAULT_OPENID_CONFIG_RESPONSE.body.jwks_uri,
+                    aliasesFromNetwork: false,
+                    endpointsFromNetwork: false,
+                    expiresAt:
+                        CacheHelpers.generateAuthorityMetadataExpiresAt(),
+                };
 
                 it("getAuthorityMetadata() returns null if key is not in cache", () => {
                     expect(
@@ -2344,14 +2395,14 @@ describe("BrowserCacheManager tests", () => {
                 });
 
                 it("getAuthorityMetadata() returns null if isAuthorityMetadataEntity returns false", () => {
-                    sinon
-                        .stub(
-                            AuthorityMetadataEntity,
-                            "isAuthorityMetadataEntity"
-                        )
-                        .returns(false);
-                    browserSessionStorage.setAuthorityMetadata(key, testObj);
-                    browserLocalStorage.setAuthorityMetadata(key, testObj);
+                    browserSessionStorage.setAuthorityMetadata(key, {
+                        // @ts-ignore
+                        invalidKey: "invalidValue",
+                    });
+                    browserLocalStorage.setAuthorityMetadata(key, {
+                        // @ts-ignore
+                        invalidKey: "invalidValue",
+                    });
 
                     expect(
                         browserSessionStorage.getAuthorityMetadata(key)
@@ -2377,8 +2428,6 @@ describe("BrowserCacheManager tests", () => {
                     expect(
                         browserLocalStorage.getAuthorityMetadata(key)
                     ).toEqual(testObj);
-                    expect(browserSessionStorage.containsKey(key)).toBe(false);
-                    expect(browserLocalStorage.containsKey(key)).toBe(false);
                     expect(
                         browserLocalStorage.getAuthorityMetadataKeys()
                     ).toEqual(expect.arrayContaining([key]));
@@ -2470,8 +2519,7 @@ describe("BrowserCacheManager tests", () => {
 
                 it("getThrottlingCache returns ThrottlingEntity", () => {
                     const testKey = "throttling";
-                    const testVal = new ThrottlingEntity();
-                    testVal.throttleTime = 60;
+                    const testVal = { throttleTime: 60 };
 
                     browserLocalStorage.setThrottlingCache(testKey, testVal);
                     browserSessionStorage.setThrottlingCache(testKey, testVal);
@@ -2480,29 +2528,7 @@ describe("BrowserCacheManager tests", () => {
                         browserSessionStorage.getThrottlingCache(testKey)
                     ).toEqual(testVal);
                     expect(
-                        browserSessionStorage.getThrottlingCache(testKey)
-                    ).toBeInstanceOf(ThrottlingEntity);
-                    expect(
                         browserLocalStorage.getThrottlingCache(testKey)
-                    ).toEqual(testVal);
-                    expect(
-                        browserLocalStorage.getThrottlingCache(testKey)
-                    ).toBeInstanceOf(ThrottlingEntity);
-                });
-            });
-
-            describe("RedirectRequestContext", () => {
-                it("Returns redirect request context as null if context not set in browser cache", () => {
-                    expect(
-                        browserSessionStorage.getRedirectRequestContext()
-                    ).toEqual(null);
-                });
-
-                it("Returns redirect request context if context set in browser cache", () => {
-                    const testVal = "testId";
-                    browserSessionStorage.setRedirectRequestContext(testVal);
-                    expect(
-                        browserSessionStorage.getRedirectRequestContext()
                     ).toEqual(testVal);
                 });
             });
@@ -2551,74 +2577,81 @@ describe("BrowserCacheManager tests", () => {
             browserSessionStorage.setTemporaryCache("cacheKey", cacheVal, true);
             expect(window.sessionStorage.getItem(msalCacheKey)).toBe(cacheVal);
             expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
-            browserSessionStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.removeItem(msalCacheKey);
             // localStorage
             browserLocalStorage.setTemporaryCache("cacheKey", cacheVal, true);
             expect(window.sessionStorage.getItem(msalCacheKey)).toBe(cacheVal);
             expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
-            browserLocalStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserLocalStorage.cookieStorage.removeItem(msalCacheKey);
             // browser memory
             browserMemoryStorage.setTemporaryCache("cacheKey", cacheVal, true);
             expect(browserMemoryStorage.getTemporaryCache(msalCacheKey)).toBe(
                 cacheVal
             );
             expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
-            browserMemoryStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserMemoryStorage.cookieStorage.removeItem(msalCacheKey);
         });
 
         it("getTempCache()", () => {
-            const getCookieSpy = sinon.spy(
-                BrowserCacheManager.prototype,
-                "getItemCookie"
-            );
             // sessionStorage
             window.sessionStorage.setItem(msalCacheKey, cacheVal);
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             expect(
                 browserSessionStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
-            expect(getCookieSpy.returned(cacheVal)).toBe(true);
-            expect(getCookieSpy.calledOnce).toBe(true);
+            expect(
+                // @ts-ignore
+                browserSessionStorage.cookieStorage.getItem(msalCacheKey)
+            ).toEqual(cacheVal);
             // localStorage
             window.localStorage.setItem(msalCacheKey, cacheVal);
-            browserLocalStorage.setItemCookie(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserLocalStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             expect(
                 browserLocalStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
-            expect(getCookieSpy.returned(cacheVal)).toBe(true);
-            expect(getCookieSpy.calledTwice).toBe(true);
+            expect(
+                // @ts-ignore
+                browserLocalStorage.cookieStorage.getItem(msalCacheKey)
+            ).toEqual(cacheVal);
             // browser memory
             browserMemoryStorage.setItem(msalCacheKey, cacheVal);
             expect(
                 browserMemoryStorage.getTemporaryCache("cacheKey", true)
             ).toBe(cacheVal);
-            expect(getCookieSpy.returned(cacheVal)).toBe(true);
-            expect(getCookieSpy.calledThrice).toBe(true);
+            expect(
+                // @ts-ignore
+                browserMemoryStorage.cookieStorage.getItem(msalCacheKey)
+            ).toEqual(cacheVal);
         });
 
-        it("removeItem()", () => {
-            const clearCookieSpy = sinon.spy(
-                BrowserCacheManager.prototype,
-                "clearItemCookie"
+        it("removeTemporaryItem()", () => {
+            const clearCookieSpy = jest.spyOn(
+                CookieStorage.prototype,
+                "removeItem"
             );
             // sessionStorage
             browserSessionStorage.setTemporaryCache("cacheKey", cacheVal, true);
-            browserSessionStorage.removeItem(msalCacheKey);
+            browserSessionStorage.removeTemporaryItem(msalCacheKey);
             expect(window.sessionStorage.getItem(msalCacheKey)).toBeNull();
             expect(document.cookie).toHaveLength(0);
-            expect(clearCookieSpy.calledOnce).toBe(true);
+            expect(clearCookieSpy).toHaveBeenCalledTimes(1);
             // localStorage
             browserLocalStorage.setTemporaryCache("cacheKey", cacheVal, true);
-            browserLocalStorage.removeItem(msalCacheKey);
+            browserLocalStorage.removeTemporaryItem(msalCacheKey);
             expect(window.localStorage.getItem(msalCacheKey)).toBeNull();
             expect(document.cookie).toHaveLength(0);
-            expect(clearCookieSpy.calledTwice).toBe(true);
+            expect(clearCookieSpy).toHaveBeenCalledTimes(2);
             // browser memory
             browserMemoryStorage.setTemporaryCache("cacheKey", cacheVal, true);
-            browserMemoryStorage.removeItem(msalCacheKey);
+            browserMemoryStorage.removeTemporaryItem(msalCacheKey);
             expect(browserMemoryStorage.getItem(msalCacheKey)).toBeNull();
             expect(document.cookie).toHaveLength(0);
-            expect(clearCookieSpy.calledThrice).toBe(true);
+            expect(clearCookieSpy).toHaveBeenCalledTimes(3);
         });
 
         it("clear()", async () => {
@@ -2647,14 +2680,16 @@ describe("BrowserCacheManager tests", () => {
             expect(document.cookie).toBe(
                 `${encodeURIComponent(msalCacheKey)}=${cacheVal}`
             );
-            browserSessionStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.removeItem(msalCacheKey);
             // localStorage
             browserLocalStorage.setTemporaryCache(msalCacheKey, cacheVal);
             expect(window.sessionStorage.getItem(msalCacheKey)).toBe(cacheVal);
             expect(document.cookie).toBe(
                 `${encodeURIComponent(msalCacheKey)}=${cacheVal}`
             );
-            browserLocalStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserLocalStorage.cookieStorage.removeItem(msalCacheKey);
             // browser memory
             browserMemoryStorage.setTemporaryCache(msalCacheKey, cacheVal);
             expect(browserMemoryStorage.getTemporaryCache(msalCacheKey)).toBe(
@@ -2663,64 +2698,64 @@ describe("BrowserCacheManager tests", () => {
             expect(document.cookie).toBe(
                 `${encodeURIComponent(msalCacheKey)}=${cacheVal}`
             );
-            browserMemoryStorage.clearItemCookie(msalCacheKey);
+            // @ts-ignore
+            browserMemoryStorage.cookieStorage.removeItem(msalCacheKey);
         });
 
         it("getTempCache() with item that contains ==", () => {
             msalCacheKey = `${Constants.CACHE_PREFIX}.${TEST_STATE_VALUES.ENCODED_LIB_STATE}`;
-            const getCookieSpy = sinon.spy(
-                BrowserCacheManager.prototype,
-                "getItemCookie"
-            );
+            const getCookieSpy = jest.spyOn(CookieStorage.prototype, "getItem");
             // sessionStorage
             browserSessionStorage.setItem(msalCacheKey, cacheVal);
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserSessionStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             expect(browserSessionStorage.getTemporaryCache(msalCacheKey)).toBe(
                 cacheVal
             );
-            expect(getCookieSpy.returned(cacheVal)).toBe(true);
-            expect(getCookieSpy.calledOnce).toBe(true);
+            expect(getCookieSpy.mock.results[0].value).toEqual(cacheVal);
+            expect(getCookieSpy).toHaveBeenCalledTimes(1);
             // localStorage
             browserLocalStorage.setItem(msalCacheKey, cacheVal);
-            browserLocalStorage.setItemCookie(msalCacheKey, cacheVal);
+            // @ts-ignore
+            browserLocalStorage.cookieStorage.setItem(msalCacheKey, cacheVal);
             expect(browserLocalStorage.getTemporaryCache(msalCacheKey)).toBe(
                 cacheVal
             );
-            expect(getCookieSpy.returned(cacheVal)).toBe(true);
-            expect(getCookieSpy.calledTwice).toBe(true);
+            expect(getCookieSpy.mock.results[1].value).toEqual(cacheVal);
+            expect(getCookieSpy).toHaveBeenCalledTimes(2);
             // browser memory
             browserMemoryStorage.setItem(msalCacheKey, cacheVal);
             expect(browserLocalStorage.getTemporaryCache(msalCacheKey)).toBe(
                 cacheVal
             );
-            expect(getCookieSpy.returned(cacheVal)).toBe(true);
-            expect(getCookieSpy.calledThrice).toBe(true);
+            expect(getCookieSpy.mock.results[2].value).toEqual(cacheVal);
+            expect(getCookieSpy).toHaveBeenCalledTimes(3);
         });
 
-        it("removeItem() with item that contains ==", () => {
+        it("removeTemporaryItem() with item that contains ==", () => {
             msalCacheKey = `${Constants.CACHE_PREFIX}.${TEST_STATE_VALUES.ENCODED_LIB_STATE}`;
-            const clearCookieSpy = sinon.spy(
-                BrowserCacheManager.prototype,
-                "clearItemCookie"
+            const clearCookieSpy = jest.spyOn(
+                CookieStorage.prototype,
+                "removeItem"
             );
             // sessionStorage
             browserSessionStorage.setTemporaryCache(msalCacheKey, cacheVal);
-            browserSessionStorage.removeItem(msalCacheKey);
+            browserSessionStorage.removeTemporaryItem(msalCacheKey);
             expect(window.sessionStorage.getItem(msalCacheKey)).toBeNull();
             expect(document.cookie).toHaveLength(0);
-            expect(clearCookieSpy.calledOnce).toBe(true);
+            expect(clearCookieSpy).toHaveBeenCalledTimes(1);
             // localStorage
             browserLocalStorage.setItem(msalCacheKey, cacheVal);
-            browserLocalStorage.removeItem(msalCacheKey);
+            browserLocalStorage.removeTemporaryItem(msalCacheKey);
             expect(window.sessionStorage.getItem(msalCacheKey)).toBeNull();
             expect(document.cookie).toHaveLength(0);
-            expect(clearCookieSpy.calledTwice).toBe(true);
+            expect(clearCookieSpy).toHaveBeenCalledTimes(2);
             // browser memory
             browserMemoryStorage.setTemporaryCache(msalCacheKey, cacheVal);
-            browserMemoryStorage.removeItem(msalCacheKey);
+            browserMemoryStorage.removeTemporaryItem(msalCacheKey);
             expect(browserMemoryStorage.getItem(msalCacheKey)).toBeNull();
             expect(document.cookie).toHaveLength(0);
-            expect(clearCookieSpy.calledThrice).toBe(true);
+            expect(clearCookieSpy).toHaveBeenCalledTimes(3);
         });
 
         it("clear() with item that contains ==", async () => {
@@ -2740,94 +2775,6 @@ describe("BrowserCacheManager tests", () => {
             await browserMemoryStorage.clear();
             expect(browserMemoryStorage.getKeys()).toHaveLength(0);
             expect(document.cookie).toHaveLength(0);
-        });
-    });
-
-    describe("Cookie operations", () => {
-        let browserSessionStorage: BrowserCacheManager;
-        let browserLocalStorage: BrowserCacheManager;
-        let cacheVal: string;
-        let msalCacheKey: string;
-        beforeEach(() => {
-            browserSessionStorage = new BrowserCacheManager(
-                TEST_CONFIG.MSAL_CLIENT_ID,
-                cacheConfig,
-                browserCrypto,
-                logger
-            );
-            cacheConfig.cacheLocation = BrowserCacheLocation.LocalStorage;
-            browserLocalStorage = new BrowserCacheManager(
-                TEST_CONFIG.MSAL_CLIENT_ID,
-                cacheConfig,
-                browserCrypto,
-                logger
-            );
-            cacheVal = "cacheVal";
-            msalCacheKey = browserSessionStorage.generateCacheKey("cacheKey");
-        });
-
-        it("setItemCookie()", () => {
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
-            expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
-            browserSessionStorage.clearItemCookie(msalCacheKey);
-            browserLocalStorage.setItemCookie(msalCacheKey, cacheVal);
-            expect(document.cookie).toBe(`${msalCacheKey}=${cacheVal}`);
-        });
-
-        it("sets samesite", () => {
-            const cookieSpy = jest.spyOn(document, "cookie", "set");
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
-            expect(cookieSpy.mock.calls[0][0]).toContain("SameSite=Lax");
-        });
-
-        it("getItemCookie()", () => {
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
-            expect(browserSessionStorage.getItemCookie(msalCacheKey)).toBe(
-                cacheVal
-            );
-            expect(browserLocalStorage.getItemCookie(msalCacheKey)).toBe(
-                cacheVal
-            );
-        });
-
-        it("clearMsalCookie()", () => {
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
-            expect(document.cookie).not.toHaveLength(0);
-            browserSessionStorage.clearMsalCookies();
-            expect(document.cookie).toHaveLength(0);
-
-            const testCookieKey = "cookie";
-            const testCookie = `${testCookieKey}=thisIsACookie`;
-            const testCookieWithPath = "cookie=thisIsACookie;path=/;";
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
-            expect(document.cookie).not.toHaveLength(0);
-            document.cookie = testCookieWithPath;
-            browserSessionStorage.clearMsalCookies();
-            expect(document.cookie).toBe(testCookie);
-            browserSessionStorage.clearItemCookie(testCookieKey);
-        });
-
-        it("clearItemCookie()", () => {
-            browserSessionStorage.setItemCookie(msalCacheKey, cacheVal);
-            browserSessionStorage.clearItemCookie(msalCacheKey);
-            expect(document.cookie).toHaveLength(0);
-
-            browserLocalStorage.setItemCookie(msalCacheKey, cacheVal);
-            browserSessionStorage.clearItemCookie(msalCacheKey);
-            expect(document.cookie).toHaveLength(0);
-        });
-
-        it("getCookieExpirationTime()", () => {
-            const COOKIE_LIFE_MULTIPLIER = 24 * 60 * 60 * 1000;
-            const currentTime = new Date().getTime();
-            sinon.stub(Date.prototype, "getTime").returns(currentTime);
-            const cookieLifeDays = 1;
-            const expectedDate = new Date(
-                currentTime + cookieLifeDays * COOKIE_LIFE_MULTIPLIER
-            );
-            expect(
-                browserLocalStorage.getCookieExpirationTime(cookieLifeDays)
-            ).toBe(expectedDate.toUTCString());
         });
     });
 
@@ -2996,11 +2943,11 @@ describe("BrowserCacheManager tests", () => {
 
         it("Throws error if cached request cannot be parsed correctly", async () => {
             let dbStorage = {};
-            sinon
-                .stub(DatabaseStorage.prototype, "open")
-                .callsFake(async (): Promise<void> => {
+            jest.spyOn(DatabaseStorage.prototype, "open").mockImplementation(
+                async (): Promise<void> => {
                     dbStorage = {};
-                });
+                }
+            );
             const browserStorage = new BrowserCacheManager(
                 TEST_CONFIG.MSAL_CLIENT_ID,
                 cacheConfig,
@@ -3031,11 +2978,11 @@ describe("BrowserCacheManager tests", () => {
 
         it("Uses authority from cache if not present in cached request", async () => {
             let dbStorage = {};
-            sinon
-                .stub(DatabaseStorage.prototype, "open")
-                .callsFake(async (): Promise<void> => {
+            jest.spyOn(DatabaseStorage.prototype, "open").mockImplementation(
+                async (): Promise<void> => {
                     dbStorage = {};
-                });
+                }
+            );
             const browserStorage = new BrowserCacheManager(
                 TEST_CONFIG.MSAL_CLIENT_ID,
                 cacheConfig,
@@ -3076,11 +3023,11 @@ describe("BrowserCacheManager tests", () => {
 
         it("cleanRequestByInteractionType() returns early if state is not present", () => {
             let dbStorage = {};
-            sinon
-                .stub(DatabaseStorage.prototype, "open")
-                .callsFake(async (): Promise<void> => {
+            jest.spyOn(DatabaseStorage.prototype, "open").mockImplementation(
+                async (): Promise<void> => {
                     dbStorage = {};
-                });
+                }
+            );
             const browserStorage = new BrowserCacheManager(
                 TEST_CONFIG.MSAL_CLIENT_ID,
                 cacheConfig,
@@ -3102,11 +3049,11 @@ describe("BrowserCacheManager tests", () => {
 
         it("cleanRequestByInteractionType() cleans cache", () => {
             let dbStorage = {};
-            sinon
-                .stub(DatabaseStorage.prototype, "open")
-                .callsFake(async (): Promise<void> => {
+            jest.spyOn(DatabaseStorage.prototype, "open").mockImplementation(
+                async (): Promise<void> => {
                     dbStorage = {};
-                });
+                }
+            );
             const browserStorage = new BrowserCacheManager(
                 TEST_CONFIG.MSAL_CLIENT_ID,
                 cacheConfig,
@@ -3118,9 +3065,9 @@ describe("BrowserCacheManager tests", () => {
                 interactionType: InteractionType.Redirect,
             };
 
-            sinon
-                .stub(CryptoOps.prototype, "createNewGuid")
-                .returns(RANDOM_TEST_GUID);
+            jest.spyOn(CryptoOps.prototype, "createNewGuid").mockReturnValue(
+                RANDOM_TEST_GUID
+            );
             const state = ProtocolUtils.setRequestState(
                 browserCrypto,
                 undefined,
@@ -3141,11 +3088,11 @@ describe("BrowserCacheManager tests", () => {
         });
         it("cleanRequestByInteractionType() interaction status even no request is in progress", () => {
             let dbStorage = {};
-            sinon
-                .stub(DatabaseStorage.prototype, "open")
-                .callsFake(async (): Promise<void> => {
+            jest.spyOn(DatabaseStorage.prototype, "open").mockImplementation(
+                async (): Promise<void> => {
                     dbStorage = {};
-                });
+                }
+            );
             const browserStorage = new BrowserCacheManager(
                 TEST_CONFIG.MSAL_CLIENT_ID,
                 {

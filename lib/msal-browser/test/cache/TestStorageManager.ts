@@ -16,11 +16,6 @@ import {
     ValidCredentialType,
     TokenKeys,
     CacheHelpers,
-    TokenClaims,
-    CredentialType,
-    buildTenantProfileFromIdTokenClaims,
-    TenantProfile,
-    AccountInfo,
 } from "@azure/msal-common";
 
 const ACCOUNT_KEYS = "ACCOUNT_KEYS";
@@ -137,7 +132,7 @@ export class TestStorageManager extends CacheManager {
     }
 
     setAppMetadata(appMetadata: AppMetadataEntity): void {
-        const appMetadataKey = appMetadata.generateAppMetadataKey();
+        const appMetadataKey = CacheHelpers.generateAppMetadataKey(appMetadata);
         this.store[appMetadataKey] = appMetadata;
     }
 

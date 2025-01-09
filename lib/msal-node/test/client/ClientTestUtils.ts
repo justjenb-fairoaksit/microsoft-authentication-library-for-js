@@ -5,7 +5,6 @@
 
 import {
     AADServerParamKeys,
-    GrantType,
     ThrottlingConstants,
     ServerTelemetryEntity,
     CacheManager,
@@ -19,7 +18,6 @@ import {
     AccessTokenEntity,
     RefreshTokenEntity,
     ProtocolMode,
-    AuthorityFactory,
     AuthorityOptions,
     AuthorityMetadataEntity,
     ValidCredentialType,
@@ -29,9 +27,15 @@ import {
     createClientAuthError,
     ClientAuthErrorCodes,
     CacheHelpers,
+    Authority,
+    INetworkModule,
+    ClientAssertionCallback,
+    ClientAssertionConfig,
+    PasswordGrantConstants,
 } from "@azure/msal-common";
 import {
     AUTHENTICATION_RESULT,
+    DEVICE_CODE_RESPONSE,
     ID_TOKEN_CLAIMS,
     RANDOM_TEST_GUID,
     TEST_CONFIG,
@@ -39,7 +43,9 @@ import {
     TEST_DATA_CLIENT_INFO,
     TEST_POP_VALUES,
     TEST_TOKENS,
-} from "../test_kit/StringConstants";
+} from "../test_kit/StringConstants.js";
+import { Configuration } from "../../src/config/Configuration.js";
+import { TEST_CONSTANTS } from "../utils/TestConstants.js";
 
 const ACCOUNT_KEYS = "ACCOUNT_KEYS";
 const TOKEN_KEYS = "TOKEN_KEYS";
@@ -149,7 +155,7 @@ export class MockStorageClass extends CacheManager {
         return this.store[key] as AppMetadataEntity;
     }
     setAppMetadata(value: AppMetadataEntity): void {
-        const key = value.generateAppMetadataKey();
+        const key = CacheHelpers.generateAppMetadataKey(value);
         this.store[key] = value;
     }
 
@@ -240,6 +246,22 @@ export const mockCrypto = {
                 return input;
         }
     },
+    base64UrlEncode(input: string): string {
+        switch (input) {
+            case TEST_POP_VALUES.DECODED_REQ_CNF:
+                return TEST_POP_VALUES.URLSAFE_ENCODED_REQCNF;
+            default:
+                return input;
+        }
+    },
+    encodeKid(input: string): string {
+        switch (input) {
+            case TEST_POP_VALUES.KID:
+                return TEST_POP_VALUES.URLSAFE_ENCODED_REQCNF;
+            default:
+                return input;
+        }
+    },
     async generatePkceCodes(): Promise<PkceCodes> {
         return {
             challenge: TEST_CONFIG.TEST_CHALLENGE,
@@ -264,7 +286,10 @@ export const mockCrypto = {
 };
 
 export class ClientTestUtils {
-    static async createTestClientConfiguration(): Promise<ClientConfiguration> {
+    static async createTestClientConfiguration(
+        clientCapabilities?: Array<string>,
+        mockNetworkClient?: INetworkModule
+    ): Promise<ClientConfiguration> {
         const mockStorage = new MockStorageClass(
             TEST_CONFIG.MSAL_CLIENT_ID,
             mockCrypto,
@@ -275,7 +300,7 @@ export class ClientTestUtils {
             return;
         };
 
-        const mockHttpClient = {
+        const mockHttpClient = mockNetworkClient || {
             sendGetRequestAsync<T>(): T {
                 return {} as T;
             },
@@ -298,12 +323,13 @@ export class ClientTestUtils {
         };
         const logger = new Logger(loggerOptions);
 
-        const authority = AuthorityFactory.createInstance(
+        const authority = new Authority(
             TEST_CONFIG.validAuthority,
             mockHttpClient,
             mockStorage,
             authorityOptions,
-            logger
+            logger,
+            TEST_CONFIG.CORRELATION_ID
         );
 
         await authority.resolveEndpointsAsync().catch(() => {
@@ -312,10 +338,11 @@ export class ClientTestUtils {
             );
         });
 
-        return {
+        const clientConfig: ClientConfiguration = {
             authOptions: {
                 clientId: TEST_CONFIG.MSAL_CLIENT_ID,
                 authority: authority,
+                redirectUri: TEST_CONFIG.REDIRECT_URI,
             },
             storageInterface: mockStorage,
             networkInterface: mockHttpClient,
@@ -343,26 +370,89 @@ export class ClientTestUtils {
                 },
             },
         };
+
+        if (clientCapabilities) {
+            clientConfig.authOptions.clientCapabilities = clientCapabilities;
+        }
+
+        return clientConfig;
+    }
+
+    static async createTestConfidentialClientConfiguration(
+        clientCapabilities?: Array<string>,
+        mockNetworkClient?: INetworkModule
+    ): Promise<Configuration> {
+        const mockHttpClient = mockNetworkClient || {
+            sendGetRequestAsync<T>(): T {
+                return {} as T;
+            },
+            sendPostRequestAsync<T>(): T {
+                return {} as T;
+            },
+        };
+
+        const loggerOptions = {
+            loggerCallback: (): void => {},
+            piiLoggingEnabled: true,
+            logLevel: LogLevel.Verbose,
+        };
+
+        const confidentialClientConfig: Configuration = {
+            auth: {
+                clientId: TEST_CONSTANTS.CLIENT_ID,
+                authority: TEST_CONSTANTS.AUTHORITY,
+                // clientSecret, clientAssertion
+                clientCertificate: {
+                    // defaults to SHA-256 when both thumbprints are provided
+                    thumbprint: TEST_CONSTANTS.THUMBPRINT,
+                    thumbprintSha256: TEST_CONSTANTS.THUMBPRINT256,
+                    privateKey: TEST_CONSTANTS.PRIVATE_KEY,
+                },
+                knownAuthorities: [TEST_CONSTANTS.AUTHORITY],
+                cloudDiscoveryMetadata: "",
+                authorityMetadata: "",
+                clientCapabilities,
+                protocolMode: ProtocolMode.AAD,
+            },
+            // broker, cache
+            system: {
+                loggerOptions,
+                networkClient: mockHttpClient,
+            },
+            telemetry: {
+                application: {
+                    appName: TEST_CONFIG.applicationName,
+                    appVersion: TEST_CONFIG.applicationVersion,
+                },
+            },
+        };
+
+        return confidentialClientConfig;
     }
 }
 
 interface checks {
-    dstsScope?: boolean | undefined;
-    graphScope?: boolean | undefined;
-    clientId?: boolean | undefined;
-    grantType?: boolean | undefined;
-    clientSecret?: boolean | undefined;
-    clientSku?: boolean | undefined;
-    clientVersion?: boolean | undefined;
-    clientOs?: boolean | undefined;
-    clientCpu?: boolean | undefined;
-    appName?: boolean | undefined;
-    appVersion?: boolean | undefined;
-    msLibraryCapability?: boolean | undefined;
-    claims?: boolean | undefined;
-    testConfigAssertion?: boolean | undefined;
-    testRequestAssertion?: boolean | undefined;
-    testAssertionType?: boolean | undefined;
+    dstsScope?: boolean;
+    graphScope?: boolean;
+    clientId?: boolean;
+    grantType?: string;
+    clientSecret?: boolean;
+    clientSku?: boolean;
+    clientVersion?: boolean;
+    clientOs?: boolean;
+    clientCpu?: boolean;
+    appName?: boolean;
+    appVersion?: boolean;
+    msLibraryCapability?: boolean;
+    claims?: boolean;
+    testConfigAssertion?: boolean;
+    testRequestAssertion?: boolean;
+    testAssertionType?: boolean;
+    responseType?: boolean;
+    username?: string;
+    password?: string;
+    deviceCode?: boolean;
+    queryString?: boolean;
 }
 
 export const checkMockedNetworkRequest = (
@@ -391,12 +481,12 @@ export const checkMockedNetworkRequest = (
         ).toBe(checks.clientId);
     }
 
-    if (checks.grantType !== undefined) {
+    if (checks.grantType) {
         expect(
             returnVal.includes(
-                `${AADServerParamKeys.GRANT_TYPE}=${GrantType.CLIENT_CREDENTIALS_GRANT}`
+                `${AADServerParamKeys.GRANT_TYPE}=${checks.grantType}`
             )
-        ).toBe(checks.grantType);
+        ).toBe(true);
     }
 
     if (checks.clientSecret !== undefined) {
@@ -502,4 +592,52 @@ export const checkMockedNetworkRequest = (
             )
         ).toBe(checks.testAssertionType);
     }
+
+    if (checks.responseType !== undefined) {
+        expect(
+            returnVal.includes(
+                `${AADServerParamKeys.RESPONSE_TYPE}=${Constants.TOKEN_RESPONSE_TYPE}%20${Constants.ID_TOKEN_RESPONSE_TYPE}`
+            )
+        ).toBe(checks.responseType);
+    }
+
+    if (checks.username) {
+        expect(
+            returnVal.includes(
+                `${PasswordGrantConstants.username}=${checks.username}`
+            )
+        ).toBe(true);
+    }
+
+    if (checks.password) {
+        expect(
+            returnVal.includes(
+                `${PasswordGrantConstants.password}=${checks.password}`
+            )
+        ).toBe(true);
+    }
+
+    if (checks.deviceCode) {
+        expect(returnVal.includes(DEVICE_CODE_RESPONSE.deviceCode)).toBe(true);
+    }
+
+    if (checks.queryString) {
+        expect(
+            returnVal.includes(
+                `${TEST_CONFIG.DEFAULT_GRAPH_SCOPE}%20${Constants.OPENID_SCOPE}%20${Constants.PROFILE_SCOPE}%20${Constants.OFFLINE_ACCESS_SCOPE}`
+            )
+        ).toBe(true);
+    }
+};
+
+export const getClientAssertionCallback = (
+    clientAssertion: string
+): ClientAssertionCallback => {
+    const clientAssertionCallback: ClientAssertionCallback = async (
+        _config: ClientAssertionConfig
+    ): Promise<string> => {
+        return Promise.resolve(clientAssertion);
+    };
+
+    return clientAssertionCallback;
 };

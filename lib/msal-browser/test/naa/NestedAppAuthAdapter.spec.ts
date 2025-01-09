@@ -13,8 +13,8 @@ import {
     Logger,
     ClientAuthErrorCodes,
 } from "@azure/msal-common";
-import { CryptoOps } from "../../src/crypto/CryptoOps";
-import { NestedAppAuthAdapter } from "../../src/naa/mapping/NestedAppAuthAdapter";
+import { CryptoOps } from "../../src/crypto/CryptoOps.js";
+import { NestedAppAuthAdapter } from "../../src/naa/mapping/NestedAppAuthAdapter.js";
 import {
     BRIDGE_ERROR_ACCOUNT_UNAVAILABLE,
     BRIDGE_ERROR_DISABLED,
@@ -31,12 +31,12 @@ import {
     NAA_CLIENT_CAPABILITIES,
     NAA_SCOPE,
     REDIRECT_REQUEST,
-} from "./BridgeProxyConstants";
-import { TokenRequest } from "../../src/naa/TokenRequest";
+} from "./BridgeProxyConstants.js";
+import { TokenRequest } from "../../src/naa/TokenRequest.js";
 
 describe("NestedAppAuthAdapter tests", () => {
     let nestedAppAuthAdapter: NestedAppAuthAdapter;
-    beforeAll(() => {
+    beforeEach(() => {
         // All logger options properties are optional... so passing empty object
         const logger = new Logger({});
         const crypto: ICrypto = new CryptoOps(logger);
@@ -87,7 +87,9 @@ describe("NestedAppAuthAdapter tests", () => {
             expect(result.tenantId).toBe(
                 SILENT_TOKEN_RESPONSE.account.tenantId
             );
-            expect(result.accessToken).toBe(SILENT_TOKEN_RESPONSE.access_token);
+            expect(result.accessToken).toBe(
+                SILENT_TOKEN_RESPONSE.token.access_token
+            );
             expect(result.account?.environment).toBe(
                 SILENT_TOKEN_RESPONSE.account.environment
             );
