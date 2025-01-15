@@ -17,41 +17,39 @@ import {
     Logger,
     CacheRecord,
     AADServerParamKeys,
+    IPerformanceClient,
+    InProgressPerformanceEvent,
+    PerformanceEvents,
 } from "@azure/msal-common";
-import sinon from "sinon";
-import { NativeMessageHandler } from "../../src/broker/nativeBroker/NativeMessageHandler";
-import { ApiId } from "../../src/utils/BrowserConstants";
-import { NativeInteractionClient } from "../../src/interaction_client/NativeInteractionClient";
-import { PublicClientApplication } from "../../src/app/PublicClientApplication";
+import { NativeMessageHandler } from "../../src/broker/nativeBroker/NativeMessageHandler.js";
+import { ApiId } from "../../src/utils/BrowserConstants.js";
+import { NativeInteractionClient } from "../../src/interaction_client/NativeInteractionClient.js";
+import { PublicClientApplication } from "../../src/app/PublicClientApplication.js";
 import {
     ID_TOKEN_CLAIMS,
     RANDOM_TEST_GUID,
     TEST_CONFIG,
     TEST_DATA_CLIENT_INFO,
     TEST_TOKENS,
-} from "../utils/StringConstants";
-import { NavigationClient } from "../../src/navigation/NavigationClient";
-import { BrowserAuthErrorMessage } from "../../src/error/BrowserAuthError";
+} from "../utils/StringConstants.js";
+import { NavigationClient } from "../../src/navigation/NavigationClient.js";
+import { BrowserAuthErrorMessage } from "../../src/error/BrowserAuthError.js";
 import {
     NativeAuthError,
     NativeAuthErrorCodes,
     NativeAuthErrorMessages,
-} from "../../src/error/NativeAuthError";
-import { NativeExtensionRequestBody } from "../../src/broker/nativeBroker/NativeRequest";
-import { getDefaultPerformanceClient } from "../utils/TelemetryUtils";
-import { CryptoOps } from "../../src/crypto/CryptoOps";
-import { BrowserCacheManager } from "../../src/cache/BrowserCacheManager";
-import { IPublicClientApplication } from "../../src";
+} from "../../src/error/NativeAuthError.js";
+import { NativeExtensionRequestBody } from "../../src/broker/nativeBroker/NativeRequest.js";
+import { getDefaultPerformanceClient } from "../utils/TelemetryUtils.js";
+import { BrowserCacheManager } from "../../src/cache/BrowserCacheManager.js";
+import {
+    BrowserPerformanceClient,
+    IPublicClientApplication,
+} from "../../src/index.js";
 import { buildAccountFromIdTokenClaims, buildIdToken } from "msal-test-utils";
-
-const networkInterface = {
-    sendGetRequestAsync<T>(): T {
-        return {} as T;
-    },
-    sendPostRequestAsync<T>(): T {
-        return {} as T;
-    },
-};
+import { version } from "../../src/packageMetadata.js";
+import { BrowserConstants } from "../../src/utils/BrowserConstants.js";
+import * as NativeStatusCodes from "../../src/broker/nativeBroker/NativeStatusCodes.js";
 
 const MOCK_WAM_RESPONSE = {
     access_token: TEST_TOKENS.ACCESS_TOKEN,
@@ -76,6 +74,7 @@ const testAccountEntity: AccountEntity = buildAccountFromIdTokenClaims(
 const TEST_ACCOUNT_INFO: AccountInfo = {
     ...testAccountEntity.getAccountInfo(),
     idTokenClaims: ID_TOKEN_CLAIMS,
+    idToken: TEST_TOKENS.IDTOKEN_V2,
 };
 
 const TEST_ID_TOKEN: IdTokenEntity = buildIdToken(
@@ -96,14 +95,6 @@ const testAccessTokenEntity: AccessTokenEntity = {
     cachedAt: `${TimeUtils.nowSeconds()}`,
 };
 
-const testCacheRecord: CacheRecord = {
-    account: testAccountEntity,
-    idToken: TEST_ID_TOKEN,
-    accessToken: testAccessTokenEntity,
-    refreshToken: null,
-    appMetadata: null,
-};
-
 describe("NativeInteractionClient Tests", () => {
     globalThis.MessageChannel = require("worker_threads").MessageChannel; // jsdom does not include an implementation for MessageChannel
 
@@ -114,61 +105,35 @@ describe("NativeInteractionClient Tests", () => {
     let internalStorage: BrowserCacheManager;
 
     let wamProvider: NativeMessageHandler;
-    let postMessageSpy: sinon.SinonSpy;
+    let postMessageSpy: jest.SpyInstance;
     let mcPort: MessagePort;
-
-    beforeAll(async () => {
-        pca = new PublicClientApplication({
-            auth: {
-                clientId: TEST_CONFIG.MSAL_CLIENT_ID,
-            },
-        });
-
-        await pca.initialize();
-
-        //Implementation of PCA was moved to controller.
-        pca = (pca as any).controller;
-
-        wamProvider = new NativeMessageHandler(
-            pca.getLogger(),
-            2000,
-            getDefaultPerformanceClient()
-        );
-        // @ts-ignore
-        nativeInteractionClient = new NativeInteractionClient(
-            // @ts-ignore
-            pca.config,
-            // @ts-ignore
-            pca.browserStorage,
-            // @ts-ignore
-            pca.browserCrypto,
-            pca.getLogger(),
-            // @ts-ignore
-            pca.eventHandler,
-            // @ts-ignore
-            pca.navigationClient,
-            ApiId.acquireTokenRedirect,
-            // @ts-ignore
-            pca.performanceClient,
-            wamProvider,
-            "nativeAccountId",
-            // @ts-ignore
-            pca.nativeInternalStorage,
-            RANDOM_TEST_GUID
-        );
-    });
+    let perfClient: IPerformanceClient;
+    let perfMeasurement: InProgressPerformanceEvent;
 
     beforeEach(async () => {
         pca = new PublicClientApplication({
             auth: {
                 clientId: TEST_CONFIG.MSAL_CLIENT_ID,
             },
+            telemetry: {
+                client: new BrowserPerformanceClient({
+                    auth: {
+                        clientId: TEST_CONFIG.MSAL_CLIENT_ID,
+                    },
+                }),
+                application: {
+                    appName: TEST_CONFIG.applicationName,
+                    appVersion: TEST_CONFIG.applicationVersion,
+                },
+            },
         });
 
         await pca.initialize();
 
         //Implementation of PCA was moved to controller.
         pca = (pca as any).controller;
+        // @ts-ignore
+        perfClient = pca.performanceClient;
 
         //@ts-ignore
         browserCacheManager = pca.browserStorage;
@@ -194,8 +159,7 @@ describe("NativeInteractionClient Tests", () => {
             // @ts-ignore
             pca.navigationClient,
             ApiId.acquireTokenRedirect,
-            // @ts-ignore
-            pca.performanceClient,
+            perfClient,
             wamProvider,
             "nativeAccountId",
             // @ts-ignore
@@ -203,41 +167,46 @@ describe("NativeInteractionClient Tests", () => {
             RANDOM_TEST_GUID
         );
 
-        postMessageSpy = sinon.spy(window, "postMessage");
-        sinon.stub(MessageEvent.prototype, "source").get(() => window); // source property not set by jsdom window messaging APIs
+        postMessageSpy = jest.spyOn(window, "postMessage");
+        jest.spyOn(MessageEvent.prototype, "source", "get").mockReturnValue(
+            window
+        ); // source property not set by jsdom window messaging APIs
+        perfMeasurement = perfClient.startMeasurement(
+            "test-measurement",
+            "test-correlation-id"
+        );
     });
 
     afterEach(() => {
         mcPort && mcPort.close();
         jest.restoreAllMocks();
-        sinon.restore();
         sessionStorage.clear();
         localStorage.clear();
     });
 
     describe("acquireTokensFromInternalCache Tests", () => {
-        const response: AuthenticationResult = {
-            authority: TEST_CONFIG.validAuthority,
-            uniqueId: TEST_ACCOUNT_INFO.localAccountId,
-            tenantId: TEST_ACCOUNT_INFO.tenantId,
-            scopes: TEST_CONFIG.DEFAULT_SCOPES,
-            account: TEST_ACCOUNT_INFO,
-            idToken: TEST_TOKENS.IDTOKEN_V2,
-            accessToken: TEST_TOKENS.ACCESS_TOKEN,
-            idTokenClaims: ID_TOKEN_CLAIMS,
-            fromCache: true,
-            correlationId: RANDOM_TEST_GUID,
-            expiresOn: new Date(Number(testAccessTokenEntity.expiresOn) * 1000),
-            tokenType: AuthenticationScheme.BEARER,
-        };
+        beforeEach(() => {
+            jest.spyOn(
+                CacheManager.prototype,
+                "getBaseAccountInfo"
+            ).mockReturnValue(TEST_ACCOUNT_INFO);
 
-        sinon
-            .stub(CacheManager.prototype, "getBaseAccountInfo")
-            .returns(TEST_ACCOUNT_INFO);
-
-        sinon
-            .stub(CacheManager.prototype, "readCacheRecord")
-            .returns(testCacheRecord);
+            jest.spyOn(
+                CacheManager.prototype,
+                "getAccessToken"
+            ).mockReturnValue(testAccessTokenEntity);
+            jest.spyOn(CacheManager.prototype, "getIdToken").mockReturnValue(
+                TEST_ID_TOKEN
+            );
+            jest.spyOn(
+                CacheManager.prototype,
+                "readAppMetadataFromCache"
+            ).mockReturnValue(null);
+            jest.spyOn(
+                CacheManager.prototype,
+                "readAccountFromCache"
+            ).mockReturnValue(testAccountEntity);
+        });
 
         it("Tokens found in cache", async () => {
             const response = await nativeInteractionClient.acquireToken({
@@ -258,11 +227,12 @@ describe("NativeInteractionClient Tests", () => {
 
     describe("acquireToken Tests", () => {
         it("acquires token successfully", async () => {
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((): Promise<object> => {
-                    return Promise.resolve(MOCK_WAM_RESPONSE);
-                });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
             const response = await nativeInteractionClient.acquireToken({
                 scopes: ["User.Read"],
             });
@@ -315,11 +285,12 @@ describe("NativeInteractionClient Tests", () => {
         });
 
         it("prompt: none succeeds", async () => {
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((): Promise<object> => {
-                    return Promise.resolve(MOCK_WAM_RESPONSE);
-                });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
             const response = await nativeInteractionClient.acquireToken({
                 scopes: ["User.Read"],
                 prompt: PromptValue.NONE,
@@ -339,11 +310,12 @@ describe("NativeInteractionClient Tests", () => {
         });
 
         it("prompt: consent succeeds", async () => {
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((): Promise<object> => {
-                    return Promise.resolve(MOCK_WAM_RESPONSE);
-                });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
             const response = await nativeInteractionClient.acquireToken({
                 scopes: ["User.Read"],
                 prompt: PromptValue.CONSENT,
@@ -363,11 +335,12 @@ describe("NativeInteractionClient Tests", () => {
         });
 
         it("prompt: login succeeds", async () => {
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((): Promise<object> => {
-                    return Promise.resolve(MOCK_WAM_RESPONSE);
-                });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
             const response = await nativeInteractionClient.acquireToken({
                 scopes: ["User.Read"],
                 prompt: PromptValue.LOGIN,
@@ -386,7 +359,7 @@ describe("NativeInteractionClient Tests", () => {
             expect(response.tokenType).toEqual(AuthenticationScheme.BEARER);
         });
 
-        it("throws on account switch", (done) => {
+        it("does not throw account switch error when homeaccountid is same", (done) => {
             const mockWamResponse = {
                 access_token: TEST_TOKENS.ACCESS_TOKEN,
                 id_token: TEST_TOKENS.IDTOKEN_V2,
@@ -399,11 +372,63 @@ describe("NativeInteractionClient Tests", () => {
                 properties: {},
             };
 
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((): Promise<object> => {
-                    return Promise.resolve(mockWamResponse);
+            jest.spyOn(
+                CacheManager.prototype,
+                "getAccountInfoFilteredBy"
+            ).mockReturnValue(TEST_ACCOUNT_INFO);
+
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                return Promise.resolve(mockWamResponse);
+            });
+            nativeInteractionClient
+                .acquireToken({
+                    scopes: ["User.Read"],
+                })
+                .catch((e) => {
+                    console.error(
+                        "User switch error should not have been thrown."
+                    );
+                    expect(e.errorCode).not.toBe(
+                        NativeAuthErrorCodes.userSwitch
+                    );
+                    expect(e.errorMessage).not.toBe(
+                        NativeAuthErrorMessages[NativeAuthErrorCodes.userSwitch]
+                    );
+                    done();
                 });
+            done();
+        });
+
+        it("throws error on user switch", (done) => {
+            const raw_client_info =
+                "eyJ1aWQiOiAiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwgInV0aWQiOiI3MmY5ODhiZi04NmYxLTQxYWYtOTFhYi0yZDdjZDAxMWRiNDcifQ==";
+
+            const mockWamResponse = {
+                access_token: TEST_TOKENS.ACCESS_TOKEN,
+                id_token: TEST_TOKENS.IDTOKEN_V2_ALT,
+                scope: "User.Read",
+                expires_in: 3600,
+                client_info: raw_client_info,
+                account: {
+                    id: "different-nativeAccountId",
+                },
+                properties: {},
+            };
+
+            jest.spyOn(
+                CacheManager.prototype,
+                "getAccountInfoFilteredBy"
+            ).mockReturnValue(TEST_ACCOUNT_INFO);
+
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                return Promise.resolve(mockWamResponse);
+            });
             nativeInteractionClient
                 .acquireToken({
                     scopes: ["User.Read"],
@@ -418,14 +443,15 @@ describe("NativeInteractionClient Tests", () => {
         });
 
         it("ssoSilent overwrites prompt to be 'none' and succeeds", async () => {
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((nativeRequest): Promise<object> => {
-                    expect(
-                        nativeRequest.request && nativeRequest.request.prompt
-                    ).toBe(PromptValue.NONE);
-                    return Promise.resolve(MOCK_WAM_RESPONSE);
-                });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((nativeRequest): Promise<object> => {
+                expect(
+                    nativeRequest.request && nativeRequest.request.prompt
+                ).toBe(PromptValue.NONE);
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
             // @ts-ignore
             const nativeInteractionClient = new NativeInteractionClient(
                 // @ts-ignore
@@ -468,14 +494,15 @@ describe("NativeInteractionClient Tests", () => {
         });
 
         it("acquireTokenSilent overwrites prompt to be 'none' and succeeds", async () => {
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((nativeRequest): Promise<object> => {
-                    expect(
-                        nativeRequest.request && nativeRequest.request.prompt
-                    ).toBe(PromptValue.NONE);
-                    return Promise.resolve(MOCK_WAM_RESPONSE);
-                });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((nativeRequest): Promise<object> => {
+                expect(
+                    nativeRequest.request && nativeRequest.request.prompt
+                ).toBe(PromptValue.NONE);
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
             // @ts-ignore
             const nativeInteractionClient = new NativeInteractionClient(
                 // @ts-ignore
@@ -515,6 +542,221 @@ describe("NativeInteractionClient Tests", () => {
             expect(response.correlationId).toEqual(RANDOM_TEST_GUID);
             expect(response.account).toEqual(TEST_ACCOUNT_INFO);
             expect(response.tokenType).toEqual(AuthenticationScheme.BEARER);
+        });
+
+        it("adds MSAL.js SKU to request extra query parameters", async () => {
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((message): Promise<object> => {
+                expect(
+                    message.request?.extraParameters!["x-client-xtra-sku"]
+                ).toEqual(`${BrowserConstants.MSAL_SKU}|${version},|,|,|`);
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
+            await nativeInteractionClient.acquireToken({
+                scopes: ["User.Read"],
+            });
+        });
+
+        it("adds MSAL.js and Chrome extension SKUs to request extra query parameters", async () => {
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((message): Promise<object> => {
+                expect(
+                    message.request?.extraParameters!["x-client-xtra-sku"]
+                ).toEqual(
+                    `${BrowserConstants.MSAL_SKU}|${version},|,chrome|1.0.2,|`
+                );
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
+
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "getExtensionId"
+            ).mockReturnValue("ppnbnpeolgkicgegkbkbjmhlideopiji");
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "getExtensionVersion"
+            ).mockReturnValue("1.0.2");
+
+            nativeInteractionClient = new NativeInteractionClient(
+                // @ts-ignore
+                pca.config,
+                // @ts-ignore
+                pca.browserStorage,
+                // @ts-ignore
+                pca.browserCrypto,
+                pca.getLogger(),
+                // @ts-ignore
+                pca.eventHandler,
+                // @ts-ignore
+                pca.navigationClient,
+                ApiId.acquireTokenRedirect,
+                perfClient,
+                wamProvider,
+                "nativeAccountId",
+                // @ts-ignore
+                pca.nativeInternalStorage,
+                RANDOM_TEST_GUID
+            );
+
+            await nativeInteractionClient.acquireToken({
+                scopes: ["User.Read"],
+            });
+        });
+
+        it("adds MSAL.js and unknown extension SKUs to request extra query parameters", async () => {
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((message): Promise<object> => {
+                expect(
+                    message.request?.extraParameters!["x-client-xtra-sku"]
+                ).toEqual(
+                    `${BrowserConstants.MSAL_SKU}|${version},|,unknown|2.3.4,|`
+                );
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
+
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "getExtensionId"
+            ).mockReturnValue("random_extension_id");
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "getExtensionVersion"
+            ).mockReturnValue("2.3.4");
+
+            nativeInteractionClient = new NativeInteractionClient(
+                // @ts-ignore
+                pca.config,
+                // @ts-ignore
+                pca.browserStorage,
+                // @ts-ignore
+                pca.browserCrypto,
+                pca.getLogger(),
+                // @ts-ignore
+                pca.eventHandler,
+                // @ts-ignore
+                pca.navigationClient,
+                ApiId.acquireTokenRedirect,
+                perfClient,
+                wamProvider,
+                "nativeAccountId",
+                // @ts-ignore
+                pca.nativeInternalStorage,
+                RANDOM_TEST_GUID
+            );
+
+            await nativeInteractionClient.acquireToken({
+                scopes: ["User.Read"],
+            });
+        });
+
+        it("does not set native broker error to server telemetry", async () => {
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((message): Promise<object> => {
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
+
+            await nativeInteractionClient.acquireToken({
+                scopes: ["User.Read"],
+            });
+            expect(
+                JSON.parse(
+                    window.sessionStorage.getItem(
+                        `server-telemetry-${TEST_CONFIG.MSAL_CLIENT_ID}`
+                    ) || ""
+                )
+            ).toEqual({
+                cacheHits: 0,
+                errors: [],
+                failedRequests: [],
+            });
+        });
+
+        it("sets native broker error to server telemetry", async () => {
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((message): Promise<object> => {
+                return Promise.reject(
+                    new NativeAuthError("test_native_error_code")
+                );
+            });
+            try {
+                await nativeInteractionClient.acquireToken({
+                    scopes: ["User.Read"],
+                });
+            } catch (e) {}
+            expect(
+                JSON.parse(
+                    window.sessionStorage.getItem(
+                        `server-telemetry-${TEST_CONFIG.MSAL_CLIENT_ID}`
+                    ) || ""
+                )
+            ).toEqual({
+                cacheHits: 0,
+                errors: [],
+                failedRequests: [],
+                nativeBrokerErrorCode: "test_native_error_code",
+            });
+        });
+
+        it("resets native broker error in server telemetry", async () => {
+            const sendMessageStub = jest
+                .spyOn(NativeMessageHandler.prototype, "sendMessage")
+                .mockImplementation();
+            sendMessageStub
+                .mockImplementationOnce((message): Promise<object> => {
+                    return Promise.reject(
+                        new NativeAuthError(
+                            "test_native_error_code",
+                            "test_error_desc",
+                            { status: NativeStatusCodes.PERSISTENT_ERROR }
+                        )
+                    );
+                })
+                .mockImplementationOnce((message): Promise<object> => {
+                    return Promise.resolve(MOCK_WAM_RESPONSE);
+                });
+
+            try {
+                await nativeInteractionClient.acquireToken({
+                    scopes: ["User.Read"],
+                });
+            } catch (e) {}
+            expect(
+                JSON.parse(
+                    window.sessionStorage.getItem(
+                        `server-telemetry-${TEST_CONFIG.MSAL_CLIENT_ID}`
+                    ) || ""
+                )
+            ).toEqual({
+                cacheHits: 0,
+                errors: [],
+                failedRequests: [],
+                nativeBrokerErrorCode: "test_native_error_code",
+            });
+
+            await nativeInteractionClient.acquireToken({
+                scopes: ["User.Read"],
+            });
+            expect(
+                JSON.parse(
+                    window.sessionStorage.getItem(
+                        `server-telemetry-${TEST_CONFIG.MSAL_CLIENT_ID}`
+                    ) || ""
+                )
+            ).toEqual({
+                cacheHits: 0,
+                errors: [],
+                failedRequests: [],
+            });
         });
 
         describe("storeInCache tests", () => {
@@ -606,63 +848,237 @@ describe("NativeInteractionClient Tests", () => {
 
     describe("acquireTokenRedirect tests", () => {
         it("acquires token successfully then redirects to start page", (done) => {
-            //here
-
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake((url: string) => {
-                    expect(url).toBe(window.location.href);
-                    done();
-                    return Promise.resolve(true);
-                });
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((): Promise<object> => {
-                    return Promise.resolve(MOCK_WAM_RESPONSE);
-                });
-            nativeInteractionClient.acquireTokenRedirect({
-                scopes: ["User.Read"],
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation((url: string) => {
+                expect(url).toBe(window.location.href);
+                done();
+                return Promise.resolve(true);
             });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
+            nativeInteractionClient.acquireTokenRedirect(
+                {
+                    scopes: ["User.Read"],
+                },
+                perfMeasurement
+            );
+        });
+
+        it("emits successful pre-redirect telemetry event", (done) => {
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation((url: string) => {
+                expect(url).toBe(window.location.href);
+                return Promise.resolve(true);
+            });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
+            const callbackId = pca.addPerformanceCallback((events) => {
+                expect(events[0].success).toBe(true);
+                expect(events[0].name).toBe(perfMeasurement.event.name);
+                pca.removePerformanceCallback(callbackId);
+                done();
+            });
+            nativeInteractionClient.acquireTokenRedirect(
+                {
+                    scopes: ["User.Read"],
+                },
+                perfMeasurement
+            );
         });
 
         it("throws if native token acquisition fails with fatal error", (done) => {
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((): Promise<object> => {
-                    return Promise.reject(
-                        new NativeAuthError(
-                            "ContentError",
-                            "problem getting response from extension"
-                        )
-                    );
-                });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                return Promise.reject(
+                    new NativeAuthError(
+                        "ContentError",
+                        "problem getting response from extension"
+                    )
+                );
+            });
             nativeInteractionClient
-                .acquireTokenRedirect({ scopes: ["User.Read"] })
+                .acquireTokenRedirect(
+                    { scopes: ["User.Read"] },
+                    perfMeasurement
+                )
                 .catch((e) => {
                     expect(e.errorCode).toBe("ContentError");
                     done();
                 });
         });
+
+        it("adds MSAL.js SKU to request extra query parameters", (done) => {
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation((url: string) => {
+                expect(url).toBe(window.location.href);
+                done();
+                return Promise.resolve(true);
+            });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((message): Promise<object> => {
+                expect(
+                    message.request?.extraParameters!["x-client-xtra-sku"]
+                ).toEqual(`${BrowserConstants.MSAL_SKU}|${version},|,|,|`);
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
+            nativeInteractionClient.acquireTokenRedirect(
+                {
+                    scopes: ["User.Read"],
+                },
+                perfMeasurement
+            );
+        });
+
+        it("sets native broker error to server telemetry", (done) => {
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation((url: string) => {
+                expect(url).toBe(window.location.href);
+                expect(
+                    JSON.parse(
+                        window.sessionStorage.getItem(
+                            `server-telemetry-${TEST_CONFIG.MSAL_CLIENT_ID}`
+                        ) || ""
+                    )
+                ).toHaveProperty(
+                    "nativeBrokerErrorCode",
+                    "test_native_error_code"
+                );
+                done();
+                return Promise.resolve(true);
+            });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((message): Promise<object> => {
+                return Promise.reject(
+                    new NativeAuthError("test_native_error_code")
+                );
+            });
+            nativeInteractionClient.acquireTokenRedirect(
+                {
+                    scopes: ["User.Read"],
+                },
+                perfMeasurement
+            );
+        });
+
+        it("resets native broker error in server telemetry", async () => {
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation((url: string) => {
+                return Promise.resolve(true);
+            });
+            const sendMessageStub = jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            );
+            sendMessageStub
+                .mockImplementationOnce((message): Promise<object> => {
+                    return Promise.reject(
+                        new NativeAuthError(
+                            "test_native_error_code",
+                            "test_error_desc",
+                            { status: NativeStatusCodes.PERSISTENT_ERROR }
+                        )
+                    );
+                })
+                .mockImplementationOnce((message): Promise<object> => {
+                    return Promise.resolve(MOCK_WAM_RESPONSE);
+                })
+                .mockImplementationOnce((message): Promise<object> => {
+                    return Promise.resolve(MOCK_WAM_RESPONSE);
+                });
+
+            try {
+                await nativeInteractionClient.acquireTokenRedirect(
+                    {
+                        scopes: ["User.Read"],
+                    },
+                    perfMeasurement
+                );
+            } catch (e) {}
+
+            expect(
+                JSON.parse(
+                    window.sessionStorage.getItem(
+                        `server-telemetry-${TEST_CONFIG.MSAL_CLIENT_ID}`
+                    ) || ""
+                )
+            ).toEqual({
+                cacheHits: 0,
+                errors: [],
+                failedRequests: [],
+                nativeBrokerErrorCode: "test_native_error_code",
+            });
+
+            await nativeInteractionClient.acquireTokenRedirect(
+                {
+                    scopes: ["User.Read"],
+                },
+                perfMeasurement
+            );
+            // @ts-ignore
+            pca.browserStorage.setInteractionInProgress(true);
+            await nativeInteractionClient.handleRedirectPromise();
+
+            expect(
+                JSON.parse(
+                    window.sessionStorage.getItem(
+                        `server-telemetry-${TEST_CONFIG.MSAL_CLIENT_ID}`
+                    ) || ""
+                )
+            ).toEqual({
+                cacheHits: 0,
+                errors: [],
+                failedRequests: [],
+            });
+        });
     });
 
     describe("handleRedirectPromise tests", () => {
         it("successfully returns response from native broker", async () => {
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake((url: string) => {
-                    expect(url).toBe(window.location.href);
-                    return Promise.resolve(true);
-                });
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((): Promise<object> => {
-                    return Promise.resolve(MOCK_WAM_RESPONSE);
-                });
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation((url: string) => {
+                expect(url).toBe(window.location.href);
+                return Promise.resolve(true);
+            });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
             // @ts-ignore
             pca.browserStorage.setInteractionInProgress(true);
-            await nativeInteractionClient.acquireTokenRedirect({
-                scopes: ["User.Read"],
-            });
+            await nativeInteractionClient.acquireTokenRedirect(
+                {
+                    scopes: ["User.Read"],
+                },
+                perfMeasurement
+            );
             const response =
                 await nativeInteractionClient.handleRedirectPromise();
             expect(response).not.toBe(null);
@@ -688,30 +1104,33 @@ describe("NativeInteractionClient Tests", () => {
 
         it("If request includes a prompt value it is ignored on the 2nd call to native broker", async () => {
             // The user should not be prompted twice, prompt value should only be used on the first call to the native broker (before returning to the redirect uri). Native broker calls from handleRedirectPromise should ignore the prompt.
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake((url: string) => {
-                    expect(url).toBe(window.location.href);
-                    return Promise.resolve(true);
-                });
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake(
-                    (
-                        messageBody: NativeExtensionRequestBody
-                    ): Promise<object> => {
-                        expect(
-                            messageBody.request && messageBody.request.prompt
-                        ).toBe(undefined);
-                        return Promise.resolve(MOCK_WAM_RESPONSE);
-                    }
-                );
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation((url: string) => {
+                expect(url).toBe(window.location.href);
+                return Promise.resolve(true);
+            });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation(
+                (messageBody: NativeExtensionRequestBody): Promise<object> => {
+                    expect(
+                        messageBody.request && messageBody.request.prompt
+                    ).toBe(undefined);
+                    return Promise.resolve(MOCK_WAM_RESPONSE);
+                }
+            );
             // @ts-ignore
             pca.browserStorage.setInteractionInProgress(true);
-            await nativeInteractionClient.acquireTokenRedirect({
-                scopes: ["User.Read"],
-                prompt: "login",
-            });
+            await nativeInteractionClient.acquireTokenRedirect(
+                {
+                    scopes: ["User.Read"],
+                    prompt: "login",
+                },
+                perfMeasurement
+            );
             const response =
                 await nativeInteractionClient.handleRedirectPromise();
             expect(response).not.toBe(null);
@@ -738,31 +1157,33 @@ describe("NativeInteractionClient Tests", () => {
         it("clears interaction in progress if native broker call fails", (done) => {
             //here
 
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake((url: string) => {
-                    expect(url).toBe(window.location.href);
-                    return Promise.resolve(true);
-                });
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation((url: string) => {
+                expect(url).toBe(window.location.href);
+                return Promise.resolve(true);
+            });
             let firstTime = true;
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((): Promise<object> => {
-                    if (firstTime) {
-                        firstTime = false;
-                        return Promise.resolve(MOCK_WAM_RESPONSE); // The acquireTokenRedirect call should succeed
-                    }
-                    return Promise.reject(
-                        new NativeAuthError(
-                            "ContentError",
-                            "extension call failed"
-                        )
-                    ); // handleRedirectPromise call should fail
-                });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                if (firstTime) {
+                    firstTime = false;
+                    return Promise.resolve(MOCK_WAM_RESPONSE); // The acquireTokenRedirect call should succeed
+                }
+                return Promise.reject(
+                    new NativeAuthError("ContentError", "extension call failed")
+                ); // handleRedirectPromise call should fail
+            });
             // @ts-ignore
             pca.browserStorage.setInteractionInProgress(true);
             nativeInteractionClient
-                .acquireTokenRedirect({ scopes: ["User.Read"] })
+                .acquireTokenRedirect(
+                    { scopes: ["User.Read"] },
+                    perfMeasurement
+                )
                 .then(() => {
                     const inProgress =
                         // @ts-ignore
@@ -784,20 +1205,25 @@ describe("NativeInteractionClient Tests", () => {
         it("returns null if interaction is not in progress", async () => {
             //here
 
-            sinon
-                .stub(NavigationClient.prototype, "navigateExternal")
-                .callsFake((url: string) => {
-                    expect(url).toBe(window.location.href);
-                    return Promise.resolve(true);
-                });
-            sinon
-                .stub(NativeMessageHandler.prototype, "sendMessage")
-                .callsFake((): Promise<object> => {
-                    return Promise.resolve(MOCK_WAM_RESPONSE);
-                });
-            await nativeInteractionClient.acquireTokenRedirect({
-                scopes: ["User.Read"],
+            jest.spyOn(
+                NavigationClient.prototype,
+                "navigateExternal"
+            ).mockImplementation((url: string) => {
+                expect(url).toBe(window.location.href);
+                return Promise.resolve(true);
             });
+            jest.spyOn(
+                NativeMessageHandler.prototype,
+                "sendMessage"
+            ).mockImplementation((): Promise<object> => {
+                return Promise.resolve(MOCK_WAM_RESPONSE);
+            });
+            await nativeInteractionClient.acquireTokenRedirect(
+                {
+                    scopes: ["User.Read"],
+                },
+                perfMeasurement
+            );
             const response =
                 await nativeInteractionClient.handleRedirectPromise();
             expect(response).toBe(null);

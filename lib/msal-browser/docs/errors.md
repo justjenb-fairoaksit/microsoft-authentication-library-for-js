@@ -2,7 +2,7 @@
 
 ---
 
-**[BrowserConfigurationAuthErrors](#Browserconfigurationautherrors)**
+**[BrowserConfigurationAuthErrors](#browserconfigurationautherrors)**
 
 1. [stubbed_public_client_application_called](#stubbed_public_client_application_called)
 
@@ -15,11 +15,11 @@
 1. [hash_does_not_contain_known_properties](#hash_does_not_contain_known_properties)
 1. [unable_to_acquire_token_from_native_platform](#unable_to_acquire_token_from_native_platform)
 1. [native_connection_not_established](#native_connection_not_established)
-1. [native_broker_called_before_initialize](#native_broker_called_before_initialize)
+1. [uninitialized_public_client_application](#uninitialized_public_client_application)
 
 **[Other](#other)**
 
-1. [Access to fetch at [url] has been blocked by CORS policy](#Access-to-fetch-at-[url]-has-been-blocked-by-CORS-policy)
+1. [Access to fetch at [url] has been blocked by CORS policy](#access-to-fetch-at-url-has-been-blocked-by-cors-policy)
 
 ---
 
@@ -127,8 +127,8 @@ async function myAcquireToken(request) {
     const msalInstance = getMsalInstance(); // get the msal application instance
 
     const tokenRequest = {
-        account: msalInstance.getActiveAccount() || null;
-        ...request
+        account: msalInstance.getActiveAccount() || null,
+        ...request,
     };
 
     let tokenResponse;
@@ -139,7 +139,9 @@ async function myAcquireToken(request) {
     } catch (error) {
         if (error instanceof InteractionRequiredAuthError) {
             try {
-                tokenResponse = await msalInstance.acquireTokenPopup(tokenRequest);
+                tokenResponse = await msalInstance.acquireTokenPopup(
+                    tokenRequest
+                );
             } catch (err) {
                 console.log(err);
                 // handle other errors
@@ -151,10 +153,10 @@ async function myAcquireToken(request) {
     }
 
     return tokenResponse;
-};
+}
 
 const request = {
-    scopes: ["User.Read"]
+    scopes: ["User.Read"],
 };
 
 myAcquireToken(request);
@@ -168,8 +170,8 @@ async function myAcquireToken(request) {
     const msalInstance = getMsalInstance(); // get the msal application instance
 
     const tokenRequest = {
-        account: msalInstance.getActiveAccount() || null;
-        ...request
+        account: msalInstance.getActiveAccount() || null,
+        ...request,
     };
 
     let tokenResponse;
@@ -180,12 +182,16 @@ async function myAcquireToken(request) {
     } catch (error) {
         if (error instanceof InteractionRequiredAuthError) {
             // check for any interactions
-            if (myGlobalState.getInteractionStatus() !== InteractionStatus.None) {
+            if (
+                myGlobalState.getInteractionStatus() !== InteractionStatus.None
+            ) {
                 // throw a new error to be handled in the caller below
                 throw new Error("interaction_in_progress");
             } else {
                 // no interaction, invoke popup flow
-                tokenResponse = await msalInstance.acquireTokenPopup(tokenRequest);
+                tokenResponse = await msalInstance.acquireTokenPopup(
+                    tokenRequest
+                );
             }
         }
 
@@ -194,21 +200,23 @@ async function myAcquireToken(request) {
     }
 
     return tokenResponse;
-};
+}
 
 async function myInteractionInProgressHandler() {
     /**
      * "myWaitFor" method polls the interaction status via getInteractionStatus() from
      * the application state and resolves when it's equal to "None".
      */
-    await myWaitFor(() => myGlobalState.getInteractionStatus() === InteractionStatus.None);
+    await myWaitFor(
+        () => myGlobalState.getInteractionStatus() === InteractionStatus.None
+    );
 
     // wait is over, call myAcquireToken again to re-try acquireTokenSilent
-    return (await myAcquireToken(tokenRequest));
-};
+    return await myAcquireToken(tokenRequest);
+}
 
 const request = {
-    scopes: ["User.Read"]
+    scopes: ["User.Read"],
 };
 
 myAcquireToken(request).catch((e) => myInteractionInProgressHandler());
@@ -256,7 +264,7 @@ This error can be thrown when calling `ssoSilent`, `acquireTokenSilent`, `acquir
 
 1. The page you use as your `redirectUri` is removing or manipulating the hash
 1. The page you use as your `redirectUri` is automatically navigating to a different page
-1. You are being throttled by your identity provider
+1. You are being throttled by your identity provider. The identity provider may throttle clients that make too many similar requests in a short period of time. Never implement an endless retry mechanism or retry more than once. Attempts to retry non-network errors typically yield the same result. See [throttling guide](#Throttling) for more details.
 1. Your identity provider did not redirect back to your `redirectUri`.
 
 **Important**: If your application uses a router library (e.g. React Router, Angular Router), please make sure it does not strip the hash or auto-redirect while MSAL token acquisition is in progress. If possible, it is best if your `redirectUri` page does not invoke the router at all.
@@ -326,6 +334,9 @@ const msalConfig = {
 };
 ```
 
+> [!IMPORTANT]
+> Please consult the [Troubleshooting Single-Sign On](https://github.com/AzureAD/microsoft-authentication-library-for-js/blob/dev/lib/msal-browser/FAQ.md#troubleshooting-single-sign-on) section of the MSAL Browser FAQ if you are having trouble with the `ssoSilent` API.
+
 ### hash_empty_error
 
 **Error Messages**:
@@ -379,7 +390,7 @@ const msalInstance = new PublicClientApplication({
         clientId: "your-client-id",
     },
     system: {
-        allowNativeBroker: true,
+        allowPlatformBroker: true,
     },
 });
 
@@ -395,7 +406,7 @@ const msalInstance = new PublicClientApplication({
         clientId: "your-client-id",
     },
     system: {
-        allowNativeBroker: true,
+        allowPlatformBroker: true,
     },
 });
 
@@ -406,7 +417,7 @@ msalInstance.acquireTokenSilent(); // This will also no longer throw this error
 
 ## Other
 
-Errors not thrown by msal, such as server errors
+Errors not thrown by MSAL, such as server or cache errors.
 
 ### Access to fetch at [url] has been blocked by CORS policy
 
@@ -415,3 +426,16 @@ This error occurs with MSAL.js v2.x and is due to improper configuration during 
 > Your Redirect URI is eligible for the Authorization Code Flow with PKCE.
 
 ![image](https://user-images.githubusercontent.com/5307810/110390912-922fa380-801b-11eb-9e2b-d7aa88ca0687.png)
+
+### cache_quota_exceeded
+
+**Error messages**:
+
+-   Exceeded cache storage capacity
+
+This error occurs when MSAL.js surpasses the allotted storage limit when attempting to save token information in the [configured cache storage](./caching.md#cache-storage). See [here](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria#web_storage) for web storage limits.
+
+**Mitigation**:
+
+1. Make sure the configured cache storage has enough capacity to allow MSAL.js to persist token payload. The amount of cache storage required depends on the number of [cached artifacts](./caching.md#cached-artifacts).
+2. Disable [claimsBasedCachingEnabled](./configuration.md#cache-config-options) cache config option. When enabled, it caches access tokens under a key containing the hash of the requested claims. Depending on the MSAL.js API usage, it may result in the vast number of access tokens persisted in the cache storage.

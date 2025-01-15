@@ -1,8 +1,170 @@
 # Change Log - @azure/msal-angular
 
-This log was last generated on Fri, 01 Dec 2023 18:46:06 GMT and should not be manually modified.
+<!-- This log was last generated on Wed, 15 Jan 2025 05:05:16 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 4.0.1
+
+Wed, 15 Jan 2025 05:05:16 GMT
+
+### Breaking Changes
+
+- Update msal-browser peer dependency to include v4 (thomas.norling@microsoft.com)
+
+Please see the msal-browser [migration guide](https://github.com/AzureAD/microsoft-authentication-library-for-js/blob/dev/lib/msal-browser/docs/v3-migration.md) for more details on what's changed in v4.
+
+## 3.1.0
+
+Tue, 05 Nov 2024 18:58:46 GMT
+
+### Minor changes
+
+- Bump @azure/msal-browser to v3.27.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.25
+
+Thu, 03 Oct 2024 00:40:42 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.25.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.24
+
+Thu, 19 Sep 2024 23:48:30 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.24.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.23
+
+Tue, 23 Jul 2024 14:19:34 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.20.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.22
+
+Tue, 16 Jul 2024 18:22:27 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.19.1
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.21
+
+Mon, 01 Jul 2024 19:18:29 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.18.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.20
+
+Mon, 10 Jun 2024 22:30:36 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.17.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.19
+
+Tue, 04 Jun 2024 00:08:57 GMT
+
+### Patches
+
+- Fix query string instead of HostNameAndPort bug in MsalInterceptor #7137 (joarroyo@microsoft.com)
+- Bump @azure/msal-browser to v3.16.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.18
+
+Tue, 28 May 2024 21:37:23 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.15.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.17
+
+Mon, 06 May 2024 23:48:17 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.14.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.16
+
+Thu, 11 Apr 2024 21:46:57 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.13.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.15
+
+Wed, 27 Mar 2024 18:41:17 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.11.1
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.14
+
+Fri, 22 Mar 2024 20:32:39 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.11.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.13
+
+Sat, 17 Feb 2024 01:49:06 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.10.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.12
+
+Wed, 07 Feb 2024 22:00:37 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.9.0
+- Bump eslint-config-msal to v0.0.0
+
+## 3.0.11
+
+Tue, 23 Jan 2024 00:06:05 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.7.1
+
+## 3.0.10
+
+Tue, 09 Jan 2024 00:03:25 GMT
+
+### Patches
+
+- Bump @azure/msal-browser to v3.7.0
 
 ## 3.0.9
 

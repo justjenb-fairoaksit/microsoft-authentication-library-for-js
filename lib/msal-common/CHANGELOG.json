@@ -2,6 +2,792 @@
   "name": "@azure/msal-common",
   "entries": [
     {
+      "date": "Wed, 15 Jan 2025 05:05:17 GMT",
+      "version": "15.0.1",
+      "tag": "@azure/msal-common_v15.0.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "sameera.gajjarapu@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "f0802a137253a664b0ca6ec3749c2df79e0c6ddb",
+            "comment": "Rename `native` to `platformBroker` in public API and docs"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "f0802a137253a664b0ca6ec3749c2df79e0c6ddb",
+            "comment": "Asynchronous cache writes"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump rollup-msal to v0.0.0",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 05 Nov 2024 18:58:46 GMT",
+      "version": "14.16.0",
+      "tag": "@azure/msal-common_v14.16.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1bd3b55dcfd3b544359cc41ff58c63208fd52116",
+            "comment": "Remove NetworkManager class"
+          },
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1bd3b55dcfd3b544359cc41ff58c63208fd52116",
+            "comment": "Add first order broker parameters #7348"
+          },
+          {
+            "author": "shylasummers@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1bd3b55dcfd3b544359cc41ff58c63208fd52116",
+            "comment": "Make clear synchronous for msal.node"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1bd3b55dcfd3b544359cc41ff58c63208fd52116",
+            "comment": "Additional network failure telemetry"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1bd3b55dcfd3b544359cc41ff58c63208fd52116",
+            "comment": "Validate crypto.subtle is available during initialization"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump rollup-msal to v0.0.0",
+            "commit": "not available"
+          }
+        ],
+        "patch": [
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1bd3b55dcfd3b544359cc41ff58c63208fd52116",
+            "comment": "Move correlationId to query string on /token calls"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 03 Oct 2024 00:40:42 GMT",
+      "version": "14.15.0",
+      "tag": "@azure/msal-common_v14.15.0",
+      "comments": {
+        "none": [
+          {
+            "author": "rginsburg@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "704a8de9cc2d622534dee1a79dc19b0a8a52fe91",
+            "comment": "Replaced sinon with jest in all the msal-common tests #7341"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump rollup-msal to v0.0.0",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 19 Sep 2024 23:48:30 GMT",
+      "version": "14.15.0",
+      "tag": "@azure/msal-common_v14.15.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1111b2cb77d7ae26dd0b57719953f7d1fb3c3de9",
+            "comment": "Fix type resolution when using moduleResolution node16"
+          },
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1111b2cb77d7ae26dd0b57719953f7d1fb3c3de9",
+            "comment": "Add optional \"instanceAware\" config auth param #7259"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump rollup-msal to v0.0.0",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Wed, 28 Aug 2024 23:06:01 GMT",
+      "version": "14.14.2",
+      "tag": "@azure/msal-common_v14.14.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "joarroyo@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "a7d6315a17daf27bb0887fc03a3039a7ba6f57eb",
+            "comment": "Remove PerformanceEvent for PopupTokenHelper #7270"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 13 Aug 2024 23:25:08 GMT",
+      "version": "14.14.1",
+      "tag": "@azure/msal-common_v14.14.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "joarroyo@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "e25f9176738be11615e6d64f8f33c4b518fd9ba1",
+            "comment": "Add retryError to PerformanceEvent #7216"
+          },
+          {
+            "author": "joarroyo@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "4cb0d1cae4b219b0f01bc59473ae21e9e2ead7eb",
+            "comment": "Add PerformanceEvent for PopupTokenHelper #7216"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 23 Jul 2024 14:19:34 GMT",
+      "version": "14.14.0",
+      "tag": "@azure/msal-common_v14.14.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "99f8152a15ba356dba35ea424c670086bf8d776f",
+            "comment": "Track MSAL SKU for broker flows #7182"
+          },
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "99f8152a15ba356dba35ea424c670086bf8d776f",
+            "comment": "Track MSAL node SKU for broker flows #7213"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 16 Jul 2024 18:22:27 GMT",
+      "version": "14.13.1",
+      "tag": "@azure/msal-common_v14.13.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "5eabb42fe253ca40be6ded4158e63da2b8a2c6ec",
+            "comment": "Generate tenantProfile even without idTokenClaims"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 01 Jul 2024 19:18:29 GMT",
+      "version": "14.13.0",
+      "tag": "@azure/msal-common_v14.13.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "rginsburg@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "586aa65856854e025661086fab47c782e1e8c753",
+            "comment": "Reformatted ManagedIdentityTokenResponse + adjusted unit tests #7167"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "586aa65856854e025661086fab47c782e1e8c753",
+            "comment": "Fix extraQueryParameters being dropped from request"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "586aa65856854e025661086fab47c782e1e8c753",
+            "comment": "Make idTokenClaims optional when creating AccountEntity"
+          }
+        ],
+        "minor": [
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "586aa65856854e025661086fab47c782e1e8c753",
+            "comment": "Add main field to package.json"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 10 Jun 2024 22:30:36 GMT",
+      "version": "14.12.0",
+      "tag": "@azure/msal-common_v14.12.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "sameera.gajjarapu@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "5685c8cff1f0334ad77268759ccf828c71db419b",
+            "comment": "Add support for apps to set their own `reqCnf` and correct native flows cnf format #6357"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 04 Jun 2024 00:08:57 GMT",
+      "version": "14.11.0",
+      "tag": "@azure/msal-common_v14.11.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "8e4b664577672409573431df264307fb4864564d",
+            "comment": "Instrument pre-redirect flow #7134"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 28 May 2024 21:37:23 GMT",
+      "version": "14.10.0",
+      "tag": "@azure/msal-common_v14.10.0",
+      "comments": {
+        "none": [
+          {
+            "author": "hemoral@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "86619c7c51c99b61b2ae3525fc257c7070452e64",
+            "comment": "Add API Extractor Build Step #7097"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 06 May 2024 23:48:17 GMT",
+      "version": "14.10.0",
+      "tag": "@azure/msal-common_v14.10.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "rginsburg@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "e5fa16efec03ddf9ee66ebac83b8a958e5b4a384",
+            "comment": " Fixed inconsistencies with cancellationToken (timeout)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "e5fa16efec03ddf9ee66ebac83b8a958e5b4a384",
+            "comment": "Instrument scenario id for tracking custom user prompts #7043"
+          },
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "e5fa16efec03ddf9ee66ebac83b8a958e5b4a384",
+            "comment": "Instrument account type #7049"
+          },
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "e5fa16efec03ddf9ee66ebac83b8a958e5b4a384",
+            "comment": "Instrument server error number #7036"
+          },
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "e5fa16efec03ddf9ee66ebac83b8a958e5b4a384",
+            "comment": "Do not register duplicate performance callbacks #7069"
+          },
+          {
+            "author": "rginsburg@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "e5fa16efec03ddf9ee66ebac83b8a958e5b4a384",
+            "comment": "Client Assertion Implementation now accepts a callback instead of a string argument"
+          },
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "e5fa16efec03ddf9ee66ebac83b8a958e5b4a384",
+            "comment": "Make performanceClient.discardMeasurements() flush aux cache data in addition to measurements #7061"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 11 Apr 2024 21:46:57 GMT",
+      "version": "14.9.0",
+      "tag": "@azure/msal-common_v14.9.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1549ef7bde5a8ffe0c15024bba5169030a422a64",
+            "comment": "Capture and instrument cache errors #7021"
+          },
+          {
+            "author": "rginsburg@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1549ef7bde5a8ffe0c15024bba5169030a422a64",
+            "comment": "Implemented Managed Identity in MSAL-Node"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ],
+        "none": [
+          {
+            "author": "hemoral@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1549ef7bde5a8ffe0c15024bba5169030a422a64",
+            "comment": "Migrate ADO Pipelines to OneBranch #6992"
+          }
+        ],
+        "patch": [
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1549ef7bde5a8ffe0c15024bba5169030a422a64",
+            "comment": "Skip login_hint opaque claim if domainHint param is set #7008"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "1549ef7bde5a8ffe0c15024bba5169030a422a64",
+            "comment": "New performance event for awaiting parallel iframe calls #6962"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Wed, 27 Mar 2024 18:41:17 GMT",
+      "version": "14.8.1",
+      "tag": "@azure/msal-common_v14.8.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "877818b3fcbac3b5ce422b30f82812a051ab5183",
+            "comment": "Stringify telemetry context #6984"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 22 Mar 2024 20:32:39 GMT",
+      "version": "14.8.0",
+      "tag": "@azure/msal-common_v14.8.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "cba97b5f7a87dc8e55f2cad384ff471931b67f2a",
+            "comment": "Minor cache cleanup"
+          },
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "cba97b5f7a87dc8e55f2cad384ff471931b67f2a",
+            "comment": "Append default scopes for the cache lookup #6909"
+          }
+        ],
+        "minor": [
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "cba97b5f7a87dc8e55f2cad384ff471931b67f2a",
+            "comment": "Capture telemetry event tree #6948"
+          },
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "cba97b5f7a87dc8e55f2cad384ff471931b67f2a",
+            "comment": "Instrument non-auth error name and stack #6937"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 17 Feb 2024 01:49:05 GMT",
+      "version": "14.7.1",
+      "tag": "@azure/msal-common_v14.7.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "hemoral@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "ee8478695b89e8dc5590d9e4832051bae2684d8a",
+            "comment": "Add ID Token secret to AccountInfo in all reponses #6903"
+          },
+          {
+            "author": "bushb@umich.edu",
+            "package": "@azure/msal-common",
+            "commit": "ee8478695b89e8dc5590d9e4832051bae2684d8a",
+            "comment": "fix: Prevents error thrown when Authority URL contains no path segments."
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Wed, 07 Feb 2024 22:00:37 GMT",
+      "version": "14.7.0",
+      "tag": "@azure/msal-common_v14.7.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "bushb@umich.edu",
+            "package": "@azure/msal-common",
+            "commit": "d33c817d7501f8509413d78c3df2ea04355972a5",
+            "comment": "Ensure cached access token has a defined realm property in certain OIDC scenarios."
+          }
+        ],
+        "minor": [
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "d33c817d7501f8509413d78c3df2ea04355972a5",
+            "comment": "Instrument handleRedirectPromise() #6861"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "d33c817d7501f8509413d78c3df2ea04355972a5",
+            "comment": "Track number of times an API is invoked in a single request"
+          },
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "d33c817d7501f8509413d78c3df2ea04355972a5",
+            "comment": "Optimize TimeUtils for smaller bundle size #6837"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump eslint-config-msal to v0.0.0",
+            "commit": "not available"
+          },
+          {
+            "author": "beachball",
+            "package": "@azure/msal-common",
+            "comment": "Bump msal-test-utils to v0.0.1",
+            "commit": "not available"
+          }
+        ],
+        "none": [
+          {
+            "author": "hemoral@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "d33c817d7501f8509413d78c3df2ea04355972a5",
+            "comment": "Update shared config version references to use local files #6855"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 23 Jan 2024 00:06:05 GMT",
+      "version": "14.6.1",
+      "tag": "@azure/msal-common_v14.6.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "2c5e4f1c72835d4dc47a72d158094af89964b9b0",
+            "comment": "Fix bug affecting metadata resolution for tenanted authorities"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 09 Jan 2024 00:03:25 GMT",
+      "version": "14.6.0",
+      "tag": "@azure/msal-common_v14.6.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "kshabelko@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "4789406b295c6c9ea21c7a99845b0fbe1d27b997",
+            "comment": "Dynamically load BrowserPerformanceMeasurement to capture browser perf measurements if session storage flag is set #6748"
+          }
+        ],
+        "patch": [
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "4789406b295c6c9ea21c7a99845b0fbe1d27b997",
+            "comment": "Don't lookup tokens until they are needed"
+          },
+          {
+            "author": "hemoral@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "4789406b295c6c9ea21c7a99845b0fbe1d27b997",
+            "comment": "Handle bad_token by removing bad refresh token from cache #6757"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "4789406b295c6c9ea21c7a99845b0fbe1d27b997",
+            "comment": "Convert ThrottlingEntity into a Type"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "4789406b295c6c9ea21c7a99845b0fbe1d27b997",
+            "comment": "Refactor AuthorityMetadataEntity into type"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "4789406b295c6c9ea21c7a99845b0fbe1d27b997",
+            "comment": "Refactor appMetadataEntity into Type"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "4789406b295c6c9ea21c7a99845b0fbe1d27b997",
+            "comment": "Check RT expiration before attempting to redeem it #6703"
+          },
+          {
+            "author": "hemoral@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "4789406b295c6c9ea21c7a99845b0fbe1d27b997",
+            "comment": "Fix external account loading #6744"
+          },
+          {
+            "author": "thomas.norling@microsoft.com",
+            "package": "@azure/msal-common",
+            "commit": "4789406b295c6c9ea21c7a99845b0fbe1d27b997",
+            "comment": "Fix token refreshes with relative redirectUri #6761"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 01 Dec 2023 18:46:06 GMT",
       "version": "14.5.0",
       "tag": "@azure/msal-common_v14.5.0",

@@ -3,7 +3,6 @@
  * Licensed under the MIT License.
  */
 
-import sinon from "sinon";
 import {
     PkceCodes,
     NetworkRequestOptions,
@@ -24,11 +23,12 @@ import {
     CcsCredential,
     CcsCredentialType,
     IPerformanceClient,
-} from "@azure/msal-common";
+    StubPerformanceClient,
+} from "@azure/msal-common/browser";
 import {
     Configuration,
     buildConfiguration,
-} from "../../src/config/Configuration";
+} from "../../src/config/Configuration.js";
 import {
     TEST_CONFIG,
     TEST_URIS,
@@ -37,23 +37,20 @@ import {
     RANDOM_TEST_GUID,
     TEST_HASHES,
     TEST_TOKEN_LIFETIMES,
-    TEST_POP_VALUES,
     TEST_STATE_VALUES,
-    TEST_CRYPTO_VALUES,
-} from "../utils/StringConstants";
-import { RedirectHandler } from "../../src/interaction_handler/RedirectHandler";
+} from "../utils/StringConstants.js";
+import { RedirectHandler } from "../../src/interaction_handler/RedirectHandler.js";
 import {
     BrowserAuthErrorMessage,
     BrowserAuthError,
-    createBrowserAuthError,
-    BrowserAuthErrorCodes,
-} from "../../src/error/BrowserAuthError";
-import { TemporaryCacheKeys } from "../../src/utils/BrowserConstants";
-import { CryptoOps } from "../../src/crypto/CryptoOps";
-import { DatabaseStorage } from "../../src/cache/DatabaseStorage";
-import { BrowserCacheManager } from "../../src/cache/BrowserCacheManager";
-import { NavigationClient } from "../../src/navigation/NavigationClient";
-import { NavigationOptions } from "../../src/navigation/NavigationOptions";
+} from "../../src/error/BrowserAuthError.js";
+import { TemporaryCacheKeys } from "../../src/utils/BrowserConstants.js";
+import { CryptoOps } from "../../src/crypto/CryptoOps.js";
+import { DatabaseStorage } from "../../src/cache/DatabaseStorage.js";
+import { BrowserCacheManager } from "../../src/cache/BrowserCacheManager.js";
+import { NavigationClient } from "../../src/navigation/NavigationClient.js";
+import { NavigationOptions } from "../../src/navigation/NavigationOptions.js";
+import { RedirectRequest } from "../../src/request/RedirectRequest.js";
 
 const testPkceCodes = {
     challenge: "TestChallenge",
@@ -112,19 +109,22 @@ describe("RedirectHandler.ts Unit Tests", () => {
             piiLoggingEnabled: true,
         };
         const logger: Logger = new Logger(loggerOptions);
-        authorityInstance = AuthorityFactory.createInstance(
-            configObj.auth.authority,
-            networkInterface,
-            browserStorage,
-            authorityOptions,
-            logger
-        );
         browserCrypto = new CryptoOps(logger);
         browserStorage = new BrowserCacheManager(
             TEST_CONFIG.MSAL_CLIENT_ID,
             configObj.cache,
             browserCrypto,
-            logger
+            logger,
+            new StubPerformanceClient()
+        );
+        // Initialize authority after browser storage for proper use
+        authorityInstance = new Authority(
+            configObj.auth.authority,
+            networkInterface,
+            browserStorage,
+            authorityOptions,
+            logger,
+            TEST_CONFIG.CORRELATION_ID
         );
         authConfig = {
             authOptions: {
@@ -135,32 +135,7 @@ describe("RedirectHandler.ts Unit Tests", () => {
                 tokenRenewalOffsetSeconds:
                     configObj.system.tokenRenewalOffsetSeconds,
             },
-            cryptoInterface: {
-                createNewGuid: (): string => {
-                    return "newGuid";
-                },
-                base64Decode: (input: string): string => {
-                    return "testDecodedString";
-                },
-                base64Encode: (input: string): string => {
-                    return "testEncodedString";
-                },
-                getPublicKeyThumbprint: async (): Promise<string> => {
-                    return TEST_POP_VALUES.ENCODED_REQ_CNF;
-                },
-                signJwt: async (): Promise<string> => {
-                    return "signedJwt";
-                },
-                removeTokenBindingKey: async (): Promise<boolean> => {
-                    return Promise.resolve(true);
-                },
-                clearKeystore: async (): Promise<boolean> => {
-                    return Promise.resolve(true);
-                },
-                hashString: async (): Promise<string> => {
-                    return Promise.resolve(TEST_CRYPTO_VALUES.TEST_SHA256_HASH);
-                },
-            },
+            cryptoInterface: new CryptoOps(new Logger({})),
             storageInterface: browserStorage,
             networkInterface: {
                 sendGetRequestAsync: async (
@@ -198,7 +173,8 @@ describe("RedirectHandler.ts Unit Tests", () => {
     });
 
     afterEach(() => {
-        sinon.restore();
+        jest.restoreAllMocks();
+        browserStorage.clear();
     });
 
     describe("Constructor", () => {
@@ -245,11 +221,11 @@ describe("RedirectHandler.ts Unit Tests", () => {
 
         it("navigates browser window to given window location", (done) => {
             let dbStorage = {};
-            sinon
-                .stub(DatabaseStorage.prototype, "open")
-                .callsFake(async (): Promise<void> => {
+            jest.spyOn(DatabaseStorage.prototype, "open").mockImplementation(
+                async (): Promise<void> => {
                     dbStorage = {};
-                });
+                }
+            );
             const navigationClient = new NavigationClient();
             navigationClient.navigateExternal = (
                 requestUrl: string,
@@ -279,11 +255,11 @@ describe("RedirectHandler.ts Unit Tests", () => {
 
         it("doesnt navigate if onRedirectNavigate returns false", (done) => {
             let dbStorage = {};
-            sinon
-                .stub(DatabaseStorage.prototype, "open")
-                .callsFake(async (): Promise<void> => {
+            jest.spyOn(DatabaseStorage.prototype, "open").mockImplementation(
+                async (): Promise<void> => {
                     dbStorage = {};
-                });
+                }
+            );
             const navigationClient = new NavigationClient();
             navigationClient.navigateExternal = (
                 urlNavigate: string,
@@ -320,11 +296,11 @@ describe("RedirectHandler.ts Unit Tests", () => {
 
         it("navigates if onRedirectNavigate doesnt return false", (done) => {
             let dbStorage = {};
-            sinon
-                .stub(DatabaseStorage.prototype, "open")
-                .callsFake(async (): Promise<void> => {
+            jest.spyOn(DatabaseStorage.prototype, "open").mockImplementation(
+                async (): Promise<void> => {
                     dbStorage = {};
-                });
+                }
+            );
 
             const navigationClient = new NavigationClient();
             navigationClient.navigateExternal = (
@@ -400,11 +376,11 @@ describe("RedirectHandler.ts Unit Tests", () => {
                 tokenType: AuthenticationScheme.BEARER,
             };
             let dbStorage = {};
-            sinon
-                .stub(DatabaseStorage.prototype, "open")
-                .callsFake(async (): Promise<void> => {
+            jest.spyOn(DatabaseStorage.prototype, "open").mockImplementation(
+                async (): Promise<void> => {
                     dbStorage = {};
-                });
+                }
+            );
 
             const testAuthCodeRequest: CommonAuthorizationCodeRequest = {
                 authenticationScheme: AuthenticationScheme.BEARER,
@@ -434,15 +410,14 @@ describe("RedirectHandler.ts Unit Tests", () => {
                 browserStorage.generateCacheKey(TemporaryCacheKeys.URL_HASH),
                 TEST_HASHES.TEST_SUCCESS_CODE_HASH_REDIRECT
             );
-            sinon
-                .stub(
-                    AuthorizationCodeClient.prototype,
-                    "handleFragmentResponse"
-                )
-                .returns(testCodeResponse);
-            sinon
-                .stub(AuthorizationCodeClient.prototype, "acquireToken")
-                .resolves(testTokenResponse);
+            jest.spyOn(
+                AuthorizationCodeClient.prototype,
+                "handleFragmentResponse"
+            ).mockReturnValue(testCodeResponse);
+            jest.spyOn(
+                AuthorizationCodeClient.prototype,
+                "acquireToken"
+            ).mockResolvedValue(testTokenResponse);
 
             const redirectHandler = new RedirectHandler(
                 authCodeModule,
@@ -518,11 +493,11 @@ describe("RedirectHandler.ts Unit Tests", () => {
                 tokenType: AuthenticationScheme.BEARER,
             };
             let dbStorage = {};
-            sinon
-                .stub(DatabaseStorage.prototype, "open")
-                .callsFake(async (): Promise<void> => {
+            jest.spyOn(DatabaseStorage.prototype, "open").mockImplementation(
+                async (): Promise<void> => {
                     dbStorage = {};
-                });
+                }
+            );
 
             const testAuthCodeRequest: CommonAuthorizationCodeRequest = {
                 authenticationScheme: AuthenticationScheme.BEARER,
@@ -557,15 +532,14 @@ describe("RedirectHandler.ts Unit Tests", () => {
                 TemporaryCacheKeys.CCS_CREDENTIAL,
                 JSON.stringify(testCcsCred)
             );
-            sinon
-                .stub(
-                    AuthorizationCodeClient.prototype,
-                    "handleFragmentResponse"
-                )
-                .returns(testCodeResponse);
-            sinon
-                .stub(AuthorizationCodeClient.prototype, "acquireToken")
-                .resolves(testTokenResponse);
+            jest.spyOn(
+                AuthorizationCodeClient.prototype,
+                "handleFragmentResponse"
+            ).mockReturnValue(testCodeResponse);
+            jest.spyOn(
+                AuthorizationCodeClient.prototype,
+                "acquireToken"
+            ).mockResolvedValue(testTokenResponse);
 
             const redirectHandler = new RedirectHandler(
                 authCodeModule,

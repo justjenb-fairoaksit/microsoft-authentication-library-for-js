@@ -1,8 +1,187 @@
 # Change Log - @azure/msal-node-extensions
 
-This log was last generated on Fri, 01 Dec 2023 18:46:06 GMT and should not be manually modified.
+<!-- This log was last generated on Wed, 15 Jan 2025 05:05:17 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 1.5.1
+
+Wed, 15 Jan 2025 05:05:17 GMT
+
+### Patches
+
+- Update msal-common dependency (thomas.norling@microsoft.com)
+- Bump @azure/msal-common to v15.0.1
+- Bump eslint-config-msal to v0.0.0
+- Bump rollup-msal to v0.0.0
+
+## 1.5.0
+
+Tue, 19 Nov 2024 17:21:57 GMT
+
+### Minor changes
+
+- Allow requiring msal-node-extensions without Dpapi dependency (tyleonha@microsoft.com)
+- Bump eslint-config-msal to v0.0.0
+- Bump rollup-msal to v0.0.0
+
+## 1.4.0
+
+Tue, 05 Nov 2024 18:58:46 GMT
+
+### Minor changes
+
+- Bump @azure/msal-common to v14.16.0
+- Bump eslint-config-msal to v0.0.0
+- Bump rollup-msal to v0.0.0
+
+## 1.3.0
+
+Tue, 08 Oct 2024 16:51:05 GMT
+
+### Minor changes
+
+- Fix POP token acquisition via MsalRuntime (thomas.norling@microsoft.com)
+- Bump eslint-config-msal to v0.0.0
+- Bump rollup-msal to v0.0.0
+
+## 1.2.0
+
+Thu, 19 Sep 2024 23:48:30 GMT
+
+### Minor changes
+
+- Fix type resolution when using moduleResolution node16 (thomas.norling@microsoft.com)
+- Bump @azure/msal-common to v14.15.0
+- Bump eslint-config-msal to v0.0.0
+- Bump rollup-msal to v0.0.0
+
+## 1.1.0
+
+Tue, 23 Jul 2024 14:19:34 GMT
+
+### Minor changes
+
+- Track MSAL node SKU for broker flows #7213 (kshabelko@microsoft.com)
+- Bump @azure/msal-common to v14.14.0
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.21
+
+Tue, 16 Jul 2024 18:22:27 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.13.1
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.20
+
+Mon, 01 Jul 2024 19:18:29 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.13.0
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.19
+
+Mon, 10 Jun 2024 22:30:36 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.12.0
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.18
+
+Tue, 04 Jun 2024 00:08:57 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.11.0
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.17
+
+Tue, 28 May 2024 21:37:23 GMT
+
+### Patches
+
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.16
+
+Mon, 06 May 2024 23:48:17 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.10.0
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.15
+
+Thu, 11 Apr 2024 21:46:57 GMT
+
+### Patches
+
+- Add install script to workaround regression in npm version 10.4.0 (thomas.norling@microsoft.com)
+- Bump @azure/msal-common to v14.9.0
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.14
+
+Wed, 27 Mar 2024 18:41:17 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.8.1
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.13
+
+Fri, 22 Mar 2024 20:32:39 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.8.0
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.12
+
+Sat, 17 Feb 2024 01:49:06 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.7.1
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.11
+
+Wed, 07 Feb 2024 22:00:37 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.7.0
+- Bump eslint-config-msal to v0.0.0
+
+## 1.0.10
+
+Tue, 23 Jan 2024 00:06:05 GMT
+
+### Patches
+
+- Create require when it is not defined in MJS (altinokd@microsoft.com)
+- Bump @azure/msal-common to v14.6.1
+
+## 1.0.9
+
+Tue, 09 Jan 2024 00:03:25 GMT
+
+### Patches
+
+- Set engines field to >=16 (thomas.norling@microsoft.com)
+- Bump @azure/msal-common to v14.6.0
 
 ## 1.0.8
 

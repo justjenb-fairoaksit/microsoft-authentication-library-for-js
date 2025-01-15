@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import { InteractionHandler } from "../../src/interaction_handler/InteractionHandler";
+import { InteractionHandler } from "../../src/interaction_handler/InteractionHandler.js";
 import {
     PkceCodes,
     NetworkRequestOptions,
@@ -11,7 +11,6 @@ import {
     LogLevel,
     LoggerOptions,
     AccountInfo,
-    AuthorityFactory,
     CommonAuthorizationCodeRequest,
     AuthenticationResult,
     AuthorizationCodeClient,
@@ -23,11 +22,12 @@ import {
     AuthorityOptions,
     CcsCredential,
     CcsCredentialType,
-} from "@azure/msal-common";
+    StubPerformanceClient,
+} from "@azure/msal-common/browser";
 import {
     Configuration,
     buildConfiguration,
-} from "../../src/config/Configuration";
+} from "../../src/config/Configuration.js";
 import {
     TEST_CONFIG,
     TEST_URIS,
@@ -39,19 +39,18 @@ import {
     TEST_STATE_VALUES,
     RANDOM_TEST_GUID,
     TEST_CRYPTO_VALUES,
-} from "../utils/StringConstants";
+} from "../utils/StringConstants.js";
 import {
     createBrowserAuthError,
     BrowserAuthErrorCodes,
-} from "../../src/error/BrowserAuthError";
-import sinon from "sinon";
-import { CryptoOps } from "../../src/crypto/CryptoOps";
-import { TestStorageManager } from "../cache/TestStorageManager";
-import { BrowserCacheManager } from "../../src/cache/BrowserCacheManager";
+} from "../../src/error/BrowserAuthError.js";
+import { CryptoOps } from "../../src/crypto/CryptoOps.js";
+import { TestStorageManager } from "../cache/TestStorageManager.js";
+import { BrowserCacheManager } from "../../src/cache/BrowserCacheManager.js";
 import {
     TemporaryCacheKeys,
     BrowserConstants,
-} from "../../src/utils/BrowserConstants";
+} from "../../src/utils/BrowserConstants.js";
 
 class TestInteractionHandler extends InteractionHandler {
     constructor(
@@ -82,7 +81,7 @@ class TestInteractionHandler extends InteractionHandler {
 
 const testAuthCodeRequest: CommonAuthorizationCodeRequest = {
     authenticationScheme: AuthenticationScheme.BEARER,
-    authority: "",
+    authority: TEST_CONFIG.validAuthority,
     redirectUri: TEST_URIS.TEST_REDIR_URI,
     scopes: ["scope1", "scope2"],
     code: "",
@@ -130,6 +129,14 @@ const cryptoInterface = {
     base64Encode: (input: string): string => {
         return "testEncodedString";
     },
+    base64UrlEncode(input: string): string {
+        return Buffer.from(input, "utf-8").toString("base64url");
+    },
+    encodeKid(input: string): string {
+        return Buffer.from(JSON.stringify({ kid: input }), "utf-8").toString(
+            "base64url"
+        );
+    },
     generatePkceCodes: async (): Promise<PkceCodes> => {
         return testPkceCodes;
     },
@@ -171,11 +178,10 @@ let authConfig: ClientConfiguration;
 
 describe("InteractionHandler.ts Unit Tests", () => {
     let authCodeModule: AuthorizationCodeClient;
-    let browserRequestLogger: Logger;
     let browserStorage: BrowserCacheManager;
     const cryptoOpts = new CryptoOps(testBrowserRequestLogger);
 
-    beforeEach(() => {
+    beforeEach(async () => {
         const appConfig: Configuration = {
             auth: {
                 clientId: TEST_CONFIG.MSAL_CLIENT_ID,
@@ -193,13 +199,22 @@ describe("InteractionHandler.ts Unit Tests", () => {
             piiLoggingEnabled: true,
         };
         const logger: Logger = new Logger(loggerOptions);
-        authorityInstance = AuthorityFactory.createInstance(
+        browserStorage = new BrowserCacheManager(
+            TEST_CONFIG.MSAL_CLIENT_ID,
+            configObj.cache,
+            cryptoOpts,
+            logger,
+            new StubPerformanceClient()
+        );
+        authorityInstance = new Authority(
             configObj.auth.authority,
             networkInterface,
             browserStorage,
             authorityOptions,
-            logger
+            logger,
+            TEST_CONFIG.CORRELATION_ID
         );
+        await authorityInstance.resolveEndpointsAsync();
         authConfig = {
             authOptions: {
                 ...configObj.auth,
@@ -232,17 +247,10 @@ describe("InteractionHandler.ts Unit Tests", () => {
             loggerOptions: loggerOptions,
         };
         authCodeModule = new AuthorizationCodeClient(authConfig);
-        browserRequestLogger = new Logger(authConfig.loggerOptions!);
-        browserStorage = new BrowserCacheManager(
-            TEST_CONFIG.MSAL_CLIENT_ID,
-            configObj.cache,
-            cryptoOpts,
-            logger
-        );
     });
 
     afterEach(() => {
-        sinon.restore();
+        jest.restoreAllMocks();
     });
 
     it("Constructor", () => {
@@ -272,7 +280,6 @@ describe("InteractionHandler.ts Unit Tests", () => {
                 code: "authcode",
                 nonce: idTokenClaims.nonce,
                 state: TEST_STATE_VALUES.TEST_STATE_REDIRECT,
-                cloud_instance_host_name: "contoso.com",
             };
             const testAccount: AccountInfo = {
                 homeAccountId: TEST_DATA_CLIENT_INFO.TEST_HOME_ACCOUNT_ID,
@@ -319,32 +326,9 @@ describe("InteractionHandler.ts Unit Tests", () => {
                 TemporaryCacheKeys.CCS_CREDENTIAL,
                 CcsCredentialType.UPN
             );
-
-            sinon.stub(Authority.prototype, "isAlias").returns(false);
-            const authorityOptions: AuthorityOptions = {
-                protocolMode: ProtocolMode.AAD,
-                knownAuthorities: ["www.contoso.com"],
-                cloudDiscoveryMetadata: "",
-                authorityMetadata: "",
-            };
-            const authority = new Authority(
-                "https://www.contoso.com/common/",
-                networkInterface,
-                browserStorage,
-                authorityOptions,
-                browserRequestLogger
-            );
-            sinon
-                .stub(AuthorityFactory, "createDiscoveredInstance")
-                .resolves(authority);
-            sinon.stub(Authority.prototype, "discoveryComplete").returns(true);
-            const updateAuthoritySpy = sinon.spy(
-                AuthorizationCodeClient.prototype,
-                "updateAuthority"
-            );
-            const acquireTokenSpy = sinon
-                .stub(AuthorizationCodeClient.prototype, "acquireToken")
-                .resolves(testTokenResponse);
+            const acquireTokenSpy = jest
+                .spyOn(AuthorizationCodeClient.prototype, "acquireToken")
+                .mockResolvedValue(testTokenResponse);
             const interactionHandler = new TestInteractionHandler(
                 authCodeModule,
                 browserStorage
@@ -355,7 +339,7 @@ describe("InteractionHandler.ts Unit Tests", () => {
                 await interactionHandler.handleCodeResponseFromServer(
                     testCodeResponse,
                     {
-                        authority: "https://www.contoso.com/common/",
+                        authority: TEST_CONFIG.validAuthority,
                         scopes: ["User.Read"],
                         correlationId: TEST_CONFIG.CORRELATION_ID,
                         redirectUri: "/",
@@ -365,20 +349,12 @@ describe("InteractionHandler.ts Unit Tests", () => {
                     }
                 );
 
-            expect(
-                updateAuthoritySpy.calledWith(
-                    "contoso.com",
-                    TEST_CONFIG.CORRELATION_ID
-                )
-            ).toBe(true);
             expect(tokenResponse).toEqual(testTokenResponse);
-            expect(
-                acquireTokenSpy.calledWith(
-                    testAuthCodeRequest,
-                    testCodeResponse
-                )
-            ).toBe(true);
-            expect(acquireTokenSpy.threw()).toBe(false);
+            expect(acquireTokenSpy).toHaveBeenCalledWith(
+                testAuthCodeRequest,
+                testCodeResponse
+            );
+            expect(acquireTokenSpy).not.toThrow();
         });
     });
 
@@ -400,7 +376,7 @@ describe("InteractionHandler.ts Unit Tests", () => {
                 code: "authcode",
                 nonce: idTokenClaims.nonce,
                 state: TEST_STATE_VALUES.TEST_STATE_REDIRECT,
-                cloud_instance_host_name: "contoso.com",
+                cloud_instance_host_name: "login.windows.net",
             };
             const testAccount: AccountInfo = {
                 homeAccountId: TEST_DATA_CLIENT_INFO.TEST_HOME_ACCOUNT_ID,
@@ -438,37 +414,17 @@ describe("InteractionHandler.ts Unit Tests", () => {
                 ),
                 idTokenClaims.nonce
             );
-            sinon
-                .stub(
-                    AuthorizationCodeClient.prototype,
-                    "handleFragmentResponse"
-                )
-                .returns(testCodeResponse);
-            sinon.stub(Authority.prototype, "isAlias").returns(false);
-            const authorityOptions: AuthorityOptions = {
-                protocolMode: ProtocolMode.AAD,
-                knownAuthorities: ["www.contoso.com"],
-                cloudDiscoveryMetadata: "",
-                authorityMetadata: "",
-            };
-            const authority = new Authority(
-                "https://www.contoso.com/common/",
-                networkInterface,
-                browserStorage,
-                authorityOptions,
-                browserRequestLogger
-            );
-            sinon
-                .stub(AuthorityFactory, "createDiscoveredInstance")
-                .resolves(authority);
-            sinon.stub(Authority.prototype, "discoveryComplete").returns(true);
-            const updateAuthoritySpy = sinon.spy(
+            jest.spyOn(
+                AuthorizationCodeClient.prototype,
+                "handleFragmentResponse"
+            ).mockReturnValue(testCodeResponse);
+            const updateAuthoritySpy = jest.spyOn(
                 AuthorizationCodeClient.prototype,
                 "updateAuthority"
             );
-            const acquireTokenSpy = sinon
-                .stub(AuthorizationCodeClient.prototype, "acquireToken")
-                .resolves(testTokenResponse);
+            const acquireTokenSpy = jest
+                .spyOn(AuthorizationCodeClient.prototype, "acquireToken")
+                .mockResolvedValue(testTokenResponse);
             const interactionHandler = new TestInteractionHandler(
                 authCodeModule,
                 browserStorage
@@ -480,7 +436,7 @@ describe("InteractionHandler.ts Unit Tests", () => {
                     state: TEST_STATE_VALUES.TEST_STATE_REDIRECT,
                 },
                 {
-                    authority: "https://www.contoso.com/common/",
+                    authority: TEST_CONFIG.validAuthority,
                     scopes: ["User.Read"],
                     correlationId: TEST_CONFIG.CORRELATION_ID,
                     redirectUri: "/",
@@ -489,20 +445,16 @@ describe("InteractionHandler.ts Unit Tests", () => {
                     state: TEST_STATE_VALUES.TEST_STATE_REDIRECT,
                 }
             );
-            expect(
-                updateAuthoritySpy.calledWith(
-                    "contoso.com",
-                    TEST_CONFIG.CORRELATION_ID
-                )
-            ).toBe(true);
+            expect(updateAuthoritySpy).toHaveBeenCalledWith(
+                testCodeResponse.cloud_instance_host_name,
+                TEST_CONFIG.CORRELATION_ID
+            );
             expect(tokenResponse).toEqual(testTokenResponse);
-            expect(
-                acquireTokenSpy.calledWith(
-                    testAuthCodeRequest,
-                    testCodeResponse
-                )
-            ).toBe(true);
-            expect(acquireTokenSpy.threw()).toBe(false);
+            expect(acquireTokenSpy).toHaveBeenCalledWith(
+                testAuthCodeRequest,
+                testCodeResponse
+            );
+            expect(acquireTokenSpy).not.toThrow();
         });
 
         it("successfully adds login_hint as CCS credential to auth code request", async () => {
@@ -521,7 +473,6 @@ describe("InteractionHandler.ts Unit Tests", () => {
                 code: "authcode",
                 nonce: idTokenClaims.nonce,
                 state: TEST_STATE_VALUES.TEST_STATE_REDIRECT,
-                cloud_instance_host_name: "contoso.com",
             };
             const testAccount: AccountInfo = {
                 homeAccountId: TEST_DATA_CLIENT_INFO.TEST_HOME_ACCOUNT_ID,
@@ -568,37 +519,13 @@ describe("InteractionHandler.ts Unit Tests", () => {
                 TemporaryCacheKeys.CCS_CREDENTIAL,
                 CcsCredentialType.UPN
             );
-            sinon
-                .stub(
-                    AuthorizationCodeClient.prototype,
-                    "handleFragmentResponse"
-                )
-                .returns(testCodeResponse);
-            sinon.stub(Authority.prototype, "isAlias").returns(false);
-            const authorityOptions: AuthorityOptions = {
-                protocolMode: ProtocolMode.AAD,
-                knownAuthorities: ["www.contoso.com"],
-                cloudDiscoveryMetadata: "",
-                authorityMetadata: "",
-            };
-            const authority = new Authority(
-                "https://www.contoso.com/common/",
-                networkInterface,
-                browserStorage,
-                authorityOptions,
-                browserRequestLogger
-            );
-            sinon
-                .stub(AuthorityFactory, "createDiscoveredInstance")
-                .resolves(authority);
-            sinon.stub(Authority.prototype, "discoveryComplete").returns(true);
-            const updateAuthoritySpy = sinon.spy(
+            jest.spyOn(
                 AuthorizationCodeClient.prototype,
-                "updateAuthority"
-            );
-            const acquireTokenSpy = sinon
-                .stub(AuthorizationCodeClient.prototype, "acquireToken")
-                .resolves(testTokenResponse);
+                "handleFragmentResponse"
+            ).mockReturnValue(testCodeResponse);
+            const acquireTokenSpy = jest
+                .spyOn(AuthorizationCodeClient.prototype, "acquireToken")
+                .mockResolvedValue(testTokenResponse);
             const interactionHandler = new TestInteractionHandler(
                 authCodeModule,
                 browserStorage
@@ -610,7 +537,7 @@ describe("InteractionHandler.ts Unit Tests", () => {
                     state: TEST_STATE_VALUES.TEST_STATE_REDIRECT,
                 },
                 {
-                    authority: "https://www.contoso.com/common/",
+                    authority: TEST_CONFIG.validAuthority,
                     scopes: ["User.Read"],
                     correlationId: TEST_CONFIG.CORRELATION_ID,
                     redirectUri: "/",
@@ -619,20 +546,12 @@ describe("InteractionHandler.ts Unit Tests", () => {
                     state: TEST_STATE_VALUES.TEST_STATE_REDIRECT,
                 }
             );
-            expect(
-                updateAuthoritySpy.calledWith(
-                    "contoso.com",
-                    TEST_CONFIG.CORRELATION_ID
-                )
-            ).toBe(true);
             expect(tokenResponse).toEqual(testTokenResponse);
-            expect(
-                acquireTokenSpy.calledWith(
-                    testAuthCodeRequest,
-                    testCodeResponse
-                )
-            ).toBe(true);
-            expect(acquireTokenSpy.threw()).toBe(false);
+            expect(acquireTokenSpy).toHaveBeenCalledWith(
+                testAuthCodeRequest,
+                testCodeResponse
+            );
+            expect(acquireTokenSpy).not.toThrow();
         });
     });
 });

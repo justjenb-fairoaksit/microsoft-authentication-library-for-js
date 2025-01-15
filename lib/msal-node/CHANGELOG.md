@@ -1,8 +1,268 @@
 # Change Log - @azure/msal-node
 
-This log was last generated on Fri, 01 Dec 2023 18:46:06 GMT and should not be manually modified.
+<!-- This log was last generated on Wed, 15 Jan 2025 05:05:17 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 3.0.1
+
+Wed, 15 Jan 2025 05:05:17 GMT
+
+### Breaking Changes
+
+- NodeStorage is no longer exported
+
+Please see the [migration guide](https://github.com/AzureAD/microsoft-authentication-library-for-js/blob/dev/lib/msal-node/docs/v2-migration.md) for more details.
+
+## 2.16.2
+
+Tue, 19 Nov 2024 17:21:57 GMT
+
+### Patches
+
+- removeAccount method now clears client cache by retrieving partitionKey when accountEntities are empty (#7329) (luccarebtoledo@gmail.com)
+- Bump eslint-config-msal to v0.0.0
+- Bump rollup-msal to v0.0.0
+
+## 2.16.1
+
+Tue, 12 Nov 2024 15:32:46 GMT
+
+### Patches
+
+- Fixes bug where getAllAccounts always writes to the cache (shylasummers@microsoft.com)
+- Bump eslint-config-msal to v0.0.0
+- Bump rollup-msal to v0.0.0
+
+## 2.16.0
+
+Tue, 05 Nov 2024 18:58:45 GMT
+
+### Minor changes
+
+- Add first order broker parameters #7348 (kshabelko@microsoft.com)
+- Make clear synchronous (shylasummers@microsoft.com)
+- Remove NetworkManager class (thomas.norling@microsoft.com)
+- Region auto enable on env variable #7354 (rginsburg@microsoft.com)
+- Bump @azure/msal-common to v14.16.0
+- Bump eslint-config-msal to v0.0.0
+- Bump rollup-msal to v0.0.0
+
+## 2.15.0
+
+Thu, 03 Oct 2024 00:40:42 GMT
+
+### Minor changes
+
+- Implemented functionality to skip the cache for MI when claims are provided #7207 (rginsburg@microsoft.com)
+- Bump eslint-config-msal to v0.0.0
+- Bump rollup-msal to v0.0.0
+
+### Patches
+
+- Allow POP Params for brokered requests (thomas.norling@microsoft.com)
+
+## 2.14.0
+
+Thu, 19 Sep 2024 23:48:30 GMT
+
+### Minor changes
+
+- Fix type resolution when using moduleResolution node16 (thomas.norling@microsoft.com)
+- Bump @azure/msal-common to v14.15.0
+- Bump eslint-config-msal to v0.0.0
+- Bump rollup-msal to v0.0.0
+
+## 2.13.1
+
+Wed, 28 Aug 2024 23:06:01 GMT
+
+### Patches
+
+- Use '127.0.0.1' for the host when spinning up local loopback server (tyleonha@microsoft.com)
+- Bump @azure/msal-common to v14.14.2
+- Bump eslint-config-msal to v0.0.0
+
+## 2.13.0
+
+Tue, 13 Aug 2024 23:25:05 GMT
+
+### Minor changes
+
+- Added file-based detection for Azure Arc (rginsburg@microsoft.com)
+- Bump @azure/msal-common to v14.14.1
+- Bump eslint-config-msal to v0.0.0
+
+### Patches
+
+- Send the error template back when there's an error response (tyleonha@microsoft.com)
+- clientSecret can now (once again) be provided as undefined #7209 (rginsburg@microsoft.com)
+
+## 2.12.0
+
+Tue, 23 Jul 2024 14:19:34 GMT
+
+### Minor changes
+
+- Track MSAL node SKU for broker flows #7213 (kshabelko@microsoft.com)
+- Bump @azure/msal-common to v14.14.0
+- Bump eslint-config-msal to v0.0.0
+
+## 2.11.1
+
+Tue, 16 Jul 2024 18:22:27 GMT
+
+### Patches
+
+- SHA-256 thumbprints now use PSS padding #7200 (rginsburg@microsoft.com)
+- Bump @azure/msal-common to v14.13.1
+- Bump eslint-config-msal to v0.0.0
+
+## 2.11.0
+
+Fri, 12 Jul 2024 19:56:47 GMT
+
+### Minor changes
+
+- Deprecated SHA-1 thumbprint for clientCertificate #7185 (rginsburg@microsoft.com)
+- Bump eslint-config-msal to v0.0.0
+
+## 2.10.0
+
+Mon, 01 Jul 2024 19:18:29 GMT
+
+### Minor changes
+
+- Add main field to package.json (thomas.norling@microsoft.com)
+- Bump @azure/msal-common to v14.13.0
+- Bump eslint-config-msal to v0.0.0
+
+### Patches
+
+- Reformatted ManagedIdentityTokenResponse + adjusted unit tests #7167 (rginsburg@microsoft.com)
+
+## 2.9.2
+
+Mon, 10 Jun 2024 22:30:36 GMT
+
+### Patches
+
+- Fixed msal-node unit tests for PoP token support #7119 (lalimasharda@microsoft.com)
+- Implementation Based on Feature Request #7151 (rginsburg@microsoft.com)
+- Bump @azure/msal-common to v14.12.0
+- Bump eslint-config-msal to v0.0.0
+
+## 2.9.1
+
+Tue, 04 Jun 2024 00:08:57 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.11.0
+- Bump eslint-config-msal to v0.0.0
+
+## 2.9.0
+
+Tue, 28 May 2024 21:37:23 GMT
+
+### Minor changes
+
+- Added API for Managed Identity to detect the current environment #7093 (rginsburg@microsoft.com)
+- Bump eslint-config-msal to v0.0.0
+
+## 2.8.1
+
+Mon, 13 May 2024 18:03:26 GMT
+
+### Patches
+
+- Fixed bug where dev-provided certificate was not being attached to client assertion #7088 (rginsburg@microsoft.com)
+- Bump eslint-config-msal to v0.0.0
+
+## 2.8.0
+
+Mon, 06 May 2024 23:48:17 GMT
+
+### Minor changes
+
+- Client Assertion Implementation now accepts a callback instead of a string argument (rginsburg@microsoft.com)
+- Bump @azure/msal-common to v14.10.0
+- Bump eslint-config-msal to v0.0.0
+
+### Patches
+
+-  Fixed inconsistencies with cancellationToken (timeout) (rginsburg@microsoft.com)
+- ClientCredential and OBO acquireToken requests with claims will now skip the cache (rginsburg@microsoft.com)
+- Managed Identity: ManagedIdentityTokenResponse's expires_in is now calculated correctly (rginsburg@microsoft.com)
+- Removed Managed Identity Resource URI Validation (rginsburg@microsoft.com)
+
+## 2.7.0
+
+Thu, 11 Apr 2024 21:46:57 GMT
+
+### Minor changes
+
+- Implemented Managed Identity in MSAL-Node (rginsburg@microsoft.com)
+- Bump @azure/msal-common to v14.9.0
+- Bump eslint-config-msal to v0.0.0
+
+## 2.6.6
+
+Wed, 27 Mar 2024 18:41:17 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.8.1
+- Bump eslint-config-msal to v0.0.0
+
+## 2.6.5
+
+Fri, 22 Mar 2024 20:32:39 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.8.0
+- Bump eslint-config-msal to v0.0.0
+
+## 2.6.4
+
+Sat, 17 Feb 2024 01:49:05 GMT
+
+### Patches
+
+- Add ID Token secret to AccountInfo in all reponses #6903 (hemoral@microsoft.com)
+- Bump @azure/msal-common to v14.7.1
+- Bump eslint-config-msal to v0.0.0
+
+## 2.6.3
+
+Wed, 07 Feb 2024 22:00:37 GMT
+
+### Patches
+
+- Bump @azure/msal-common to v14.7.0
+- Bump eslint-config-msal to v0.0.0
+
+## 2.6.2
+
+Tue, 23 Jan 2024 00:06:05 GMT
+
+### Patches
+
+- Fix bug affecting metadata resolution for tenanted authorities (thomas.norling@microsoft.com)
+- Bump @azure/msal-common to v14.6.1
+
+## 2.6.1
+
+Tue, 09 Jan 2024 00:03:25 GMT
+
+### Patches
+
+- Refactor AuthorityMetadataEntity into type (thomas.norling@microsoft.com)
+- Convert ThrottlingEntity into a Type (thomas.norling@microsoft.com)
+- Set engines field to >=16 (thomas.norling@microsoft.com)
+- Refactor appMetadataEntity into Type (thomas.norling@microsoft.com)
+- Bump @azure/msal-common to v14.6.0
 
 ## 2.6.0
 

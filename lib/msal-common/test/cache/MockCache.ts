@@ -3,25 +3,22 @@
  * Licensed under the MIT License.
  */
 
+import { StaticAuthorityOptions } from "../../src/authority/AuthorityOptions.js";
+import { RefreshTokenEntity } from "../../src/cache/entities/RefreshTokenEntity.js";
+import { ICrypto } from "../../src/crypto/ICrypto.js";
+import { Logger } from "../../src/logger/Logger.js";
 import {
-    AppMetadataEntity,
-    AuthorityMetadataEntity,
-    CacheManager,
-    ICrypto,
-    RefreshTokenEntity,
-    Logger,
-    StaticAuthorityOptions,
-    CredentialType,
     AuthenticationScheme,
-} from "../../src";
-import { MockStorageClass } from "../client/ClientTestUtils";
+    CredentialType,
+} from "../../src/utils/Constants.js";
+import { MockStorageClass } from "../client/ClientTestUtils.js";
 import {
     TEST_TOKENS,
     TEST_CRYPTO_VALUES,
     ID_TOKEN_CLAIMS,
     ID_TOKEN_ALT_CLAIMS,
     GUEST_ID_TOKEN_CLAIMS,
-} from "../test_kit/StringConstants";
+} from "../test_kit/StringConstants.js";
 import { buildAccountFromIdTokenClaims, buildIdToken } from "msal-test-utils";
 
 export class MockCache {
@@ -41,11 +38,11 @@ export class MockCache {
     }
 
     // initialize the cache
-    initializeCache(): void {
-        this.createAccountEntries();
-        this.createIdTokenEntries();
-        this.createAccessTokenEntries();
-        this.createRefreshTokenEntries();
+    async initializeCache(): Promise<void> {
+        await this.createAccountEntries();
+        await this.createIdTokenEntries();
+        await this.createAccessTokenEntries();
+        await this.createRefreshTokenEntries();
         this.createAppMetadataEntries();
         this.createAuthorityMetadataEntries();
     }
@@ -56,24 +53,24 @@ export class MockCache {
     }
 
     // create account entries in the cache
-    createAccountEntries(): void {
+    async createAccountEntries(): Promise<void> {
         const account = buildAccountFromIdTokenClaims(ID_TOKEN_CLAIMS, [
             GUEST_ID_TOKEN_CLAIMS,
         ]);
-        this.cacheManager.setAccount(account);
+        await this.cacheManager.setAccount(account);
 
         const accountWithNativeAccountId =
             buildAccountFromIdTokenClaims(ID_TOKEN_ALT_CLAIMS);
         accountWithNativeAccountId.nativeAccountId = "mocked_native_account_id";
 
-        this.cacheManager.setAccount(accountWithNativeAccountId);
+        await this.cacheManager.setAccount(accountWithNativeAccountId);
     }
 
     // create id token entries in the cache
-    createIdTokenEntries(): void {
+    async createIdTokenEntries(): Promise<void> {
         const idToken = buildIdToken(ID_TOKEN_CLAIMS, TEST_TOKENS.IDTOKEN_V2);
 
-        this.cacheManager.setIdTokenCredential(idToken);
+        await this.cacheManager.setIdTokenCredential(idToken);
 
         const guestIdToken = buildIdToken(
             GUEST_ID_TOKEN_CLAIMS,
@@ -81,18 +78,18 @@ export class MockCache {
             { homeAccountId: idToken.homeAccountId }
         );
 
-        this.cacheManager.setIdTokenCredential(guestIdToken);
+        await this.cacheManager.setIdTokenCredential(guestIdToken);
 
         const altIdToken = buildIdToken(
             ID_TOKEN_ALT_CLAIMS,
             TEST_TOKENS.IDTOKEN_V2_ALT,
             { environment: "login.windows.net" }
         );
-        this.cacheManager.setIdTokenCredential(altIdToken);
+        await this.cacheManager.setIdTokenCredential(altIdToken);
     }
 
     // create access token entries in the cache
-    createAccessTokenEntries(): void {
+    async createAccessTokenEntries(): Promise<void> {
         const atOne = {
             environment: "login.microsoftonline.com",
             credentialType: CredentialType.ACCESS_TOKEN,
@@ -106,7 +103,7 @@ export class MockCache {
             expiresOn: "4600",
             tokenType: AuthenticationScheme.BEARER,
         };
-        this.cacheManager.setAccessTokenCredential(atOne);
+        await this.cacheManager.setAccessTokenCredential(atOne);
 
         const atTwo = {
             environment: "login.microsoftonline.com",
@@ -121,7 +118,7 @@ export class MockCache {
             expiresOn: "4600",
             tokenType: AuthenticationScheme.BEARER,
         };
-        this.cacheManager.setAccessTokenCredential(atTwo);
+        await this.cacheManager.setAccessTokenCredential(atTwo);
 
         // With requested claims
         const atThree = {
@@ -140,7 +137,7 @@ export class MockCache {
             requestedClaimsHash: TEST_CRYPTO_VALUES.TEST_SHA256_HASH,
         };
 
-        this.cacheManager.setAccessTokenCredential(atThree);
+        await this.cacheManager.setAccessTokenCredential(atThree);
 
         // BEARER with AuthScheme Token
         const bearerAtWithAuthScheme = {
@@ -156,7 +153,9 @@ export class MockCache {
             expiresOn: "4600",
             tokenType: AuthenticationScheme.BEARER,
         };
-        this.cacheManager.setAccessTokenCredential(bearerAtWithAuthScheme);
+        await this.cacheManager.setAccessTokenCredential(
+            bearerAtWithAuthScheme
+        );
 
         // POP Token
         const popAtWithAuthScheme = {
@@ -173,7 +172,7 @@ export class MockCache {
             tokenType: AuthenticationScheme.POP,
             keyId: "V6N_HMPagNpYS_wxM14X73q3eWzbTr9Z31RyHkIcN0Y",
         };
-        this.cacheManager.setAccessTokenCredential(popAtWithAuthScheme);
+        await this.cacheManager.setAccessTokenCredential(popAtWithAuthScheme);
 
         // SSH Certificate
         const sshAtWithAuthScheme = {
@@ -190,7 +189,7 @@ export class MockCache {
             tokenType: AuthenticationScheme.SSH,
             keyId: "some_key_id",
         };
-        this.cacheManager.setAccessTokenCredential(sshAtWithAuthScheme);
+        await this.cacheManager.setAccessTokenCredential(sshAtWithAuthScheme);
 
         // userAssertionHash
         const atWithUserAssertionHash = {
@@ -207,11 +206,13 @@ export class MockCache {
             tokenType: AuthenticationScheme.SSH,
             userAssertionHash: "nFDCbX7CudvdluSPGh34Y-VKZIXRG1rquljNBbn7xuE",
         };
-        this.cacheManager.setAccessTokenCredential(atWithUserAssertionHash);
+        await this.cacheManager.setAccessTokenCredential(
+            atWithUserAssertionHash
+        );
     }
 
     // create refresh token entries in the cache
-    createRefreshTokenEntries(): void {
+    async createRefreshTokenEntries(): Promise<void> {
         const rt: RefreshTokenEntity = {
             environment: "login.microsoftonline.com",
             credentialType: CredentialType.REFRESH_TOKEN,
@@ -219,7 +220,7 @@ export class MockCache {
             clientId: "mock_client_id",
             homeAccountId: "uid.utid",
         };
-        this.cacheManager.setRefreshTokenCredential(rt);
+        await this.cacheManager.setRefreshTokenCredential(rt);
 
         const rtFoci = {
             environment: "login.microsoftonline.com",
@@ -229,26 +230,22 @@ export class MockCache {
             homeAccountId: "uid.utid",
             familyId: "1",
         };
-        this.cacheManager.setRefreshTokenCredential(rtFoci);
+        await this.cacheManager.setRefreshTokenCredential(rtFoci);
     }
 
     // create appMetadata entries
     createAppMetadataEntries(): void {
-        const appMetaData_data = {
+        const appMetaData = {
             environment: "login.microsoftonline.com",
             familyId: "1",
             clientId: "mock_client_id",
         };
-        const appMetaData = CacheManager.toObject(
-            new AppMetadataEntity(),
-            appMetaData_data
-        );
         this.cacheManager.setAppMetadata(appMetaData);
     }
 
     // create authorityMetadata entries
     createAuthorityMetadataEntries(): void {
-        const authorityMetadata_data = {
+        const authorityMetadata = {
             aliases: [
                 "login.microsoftonline.com",
                 "login.windows.net",
@@ -258,7 +255,7 @@ export class MockCache {
             aliasesFromNetwork: false,
             authorization_endpoint:
                 "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
-            canonicalAuthority: "https://login.microsoftonline.com/common",
+            canonical_authority: "https://login.microsoftonline.com/common",
             end_session_endpoint:
                 "https://login.microsoftonline.com/common/oauth2/v2.0/logout",
             endpointsFromNetwork: false,
@@ -267,14 +264,11 @@ export class MockCache {
             jwks_uri:
                 "https://login.microsoftonline.com/common/discovery/v2.0/keys",
             preferred_cache: "login.windows.net",
+            preferred_network: "login.microsoftonline.com",
             token_endpoint:
                 "https://login.microsoftonline.com/common/oauth2/v2.0/token",
         };
 
-        const authorityMetadata = CacheManager.toObject(
-            new AuthorityMetadataEntity(),
-            authorityMetadata_data
-        );
         const cacheKey = this.cacheManager.generateAuthorityMetadataCacheKey(
             authorityMetadata.preferred_cache
         );

@@ -1,20 +1,21 @@
 import {
     CommonClientConfiguration,
     buildClientConfiguration,
-} from "../../src/config/ClientConfiguration";
-import { AuthError } from "../../src/error/AuthError";
-import { NetworkRequestOptions } from "../../src/network/INetworkModule";
-import { Logger, LogLevel } from "../../src/logger/Logger";
-import { version } from "../../src/packageMetadata";
+} from "../../src/config/ClientConfiguration.js";
+import { AuthError } from "../../src/error/AuthError.js";
+import { NetworkRequestOptions } from "../../src/network/INetworkModule.js";
+import { Logger, LogLevel } from "../../src/logger/Logger.js";
+import { version } from "../../src/packageMetadata.js";
 import {
     TEST_CONFIG,
     TEST_CRYPTO_VALUES,
     TEST_POP_VALUES,
-} from "../test_kit/StringConstants";
-import { MockStorageClass, mockCrypto } from "../client/ClientTestUtils";
-import { MockCache } from "../cache/entities/cacheConstants";
-import { Constants } from "../../src/utils/Constants";
-import { ClientAuthErrorCodes, createClientAuthError } from "../../src";
+} from "../test_kit/StringConstants.js";
+import { MockStorageClass, mockCrypto } from "../client/ClientTestUtils.js";
+import { MockCache } from "../cache/entities/cacheConstants.js";
+import { Constants } from "../../src/utils/Constants.js";
+import * as ClientAuthErrorCodes from "../../src/error/ClientAuthErrorCodes.js";
+import { createClientAuthError } from "../../src/error/ClientAuthError.js";
 
 describe("ClientConfiguration.ts Class Unit Tests", () => {
     it("buildConfiguration assigns default functions", async () => {
@@ -48,21 +49,6 @@ describe("ClientConfiguration.ts Class Unit Tests", () => {
         ).toThrowError(AuthError);
         // Storage interface checks
         expect(emptyConfig.storageInterface).not.toBeNull();
-        expect(emptyConfig.storageInterface.clear).not.toBeNull();
-        await expect(
-            emptyConfig.storageInterface.clear()
-        ).rejects.toMatchObject(
-            createClientAuthError(ClientAuthErrorCodes.methodNotImplemented)
-        );
-        expect(emptyConfig.storageInterface.containsKey).not.toBeNull();
-        expect(() =>
-            emptyConfig.storageInterface.containsKey("testKey")
-        ).toThrowError(
-            createClientAuthError(ClientAuthErrorCodes.methodNotImplemented)
-        );
-        expect(() =>
-            emptyConfig.storageInterface.containsKey("testKey")
-        ).toThrowError(AuthError);
         expect(emptyConfig.storageInterface.getAccount).not.toBeNull();
         expect(() =>
             emptyConfig.storageInterface.getAccount("testKey")
@@ -90,13 +76,13 @@ describe("ClientConfiguration.ts Class Unit Tests", () => {
         ).toThrowError(AuthError);
         expect(emptyConfig.storageInterface.setAccount).not.toBeNull();
         expect(() =>
-            emptyConfig.storageInterface.setAccount(MockCache.acc)
-        ).toThrowError(
+            emptyConfig.storageInterface.setAccount(
+                MockCache.acc,
+                TEST_CONFIG.CORRELATION_ID
+            )
+        ).rejects.toEqual(
             createClientAuthError(ClientAuthErrorCodes.methodNotImplemented)
         );
-        expect(() =>
-            emptyConfig.storageInterface.setAccount(MockCache.acc)
-        ).toThrowError(AuthError);
         // Network interface checks
         expect(emptyConfig.networkInterface).not.toBeNull();
         expect(emptyConfig.networkInterface.sendGetRequestAsync).not.toBeNull();
@@ -161,6 +147,22 @@ describe("ClientConfiguration.ts Class Unit Tests", () => {
                 base64Encode: (input: string): string => {
                     return "testEncodedString";
                 },
+                base64UrlEncode(input: string): string {
+                    switch (input) {
+                        case '{"kid": "XnsuAvttTPp0nn1K_YMLePLDbp7syCKhNHt7HjYHJYc"}':
+                            return "eyJraWQiOiAiWG5zdUF2dHRUUHAwbm4xS19ZTUxlUExEYnA3c3lDS2hOSHQ3SGpZSEpZYyJ9";
+                        default:
+                            return input;
+                    }
+                },
+                encodeKid(input: string): string {
+                    switch (input) {
+                        case "XnsuAvttTPp0nn1K_YMLePLDbp7syCKhNHt7HjYHJYc":
+                            return "eyJraWQiOiAiWG5zdUF2dHRUUHAwbm4xS19ZTUxlUExEYnA3c3lDS2hOSHQ3SGpZSEpZYyJ9";
+                        default:
+                            return input;
+                    }
+                },
                 async getPublicKeyThumbprint(): Promise<string> {
                     return TEST_POP_VALUES.KID;
                 },
@@ -216,7 +218,7 @@ describe("ClientConfiguration.ts Class Unit Tests", () => {
                 },
             },
         });
-        cacheStorageMock.setAccount(MockCache.acc);
+        await cacheStorageMock.setAccount(MockCache.acc);
         // Crypto interface tests
         expect(newConfig.cryptoInterface).not.toBeNull();
         expect(newConfig.cryptoInterface.base64Decode).not.toBeNull();
@@ -233,14 +235,6 @@ describe("ClientConfiguration.ts Class Unit Tests", () => {
         ).resolves.toBe(true);
         // Storage interface tests
         expect(newConfig.storageInterface).not.toBeNull();
-        expect(newConfig.storageInterface.clear).not.toBeNull();
-        expect(newConfig.storageInterface.clear).toBe(cacheStorageMock.clear);
-        expect(newConfig.storageInterface.containsKey).not.toBeNull();
-        expect(
-            newConfig.storageInterface.containsKey(
-                MockCache.acc.generateAccountKey()
-            )
-        ).toBe(true);
         expect(newConfig.storageInterface.getAccount).not.toBeNull();
         expect(
             newConfig.storageInterface.getAccount(

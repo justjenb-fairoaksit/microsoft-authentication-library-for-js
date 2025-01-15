@@ -45,7 +45,7 @@ At a minimum, `@azure/msal-angular` will follow the [support schedule of the mai
 
 | MSAL Angular version | MSAL support status | Supported Angular versions |
 | -------------------- | ------------------- | -------------------------- |
-| MSAL Angular v3      | Active development  | 15, 16                     |
+| MSAL Angular v3      | Active development  | 15, 16, 17, 18             |
 | MSAL Angular v2      | In maintenance      | 9, 10, 11, 12, 13, 14      |
 | MSAL Angular v1      | In maintenance      | 6, 7, 8, 9                 |
 | MSAL Angular v0      | Out of support      | 4, 5                       |
@@ -53,6 +53,8 @@ At a minimum, `@azure/msal-angular` will follow the [support schedule of the mai
 ## Prerequisites
 
 Before using `@azure/msal-angular`, [register an application in Azure AD](https://docs.microsoft.com/azure/active-directory/develop/quickstart-register-app) to get your `clientId`.
+
+For local development, please see the [`contributing.md`](https://github.com/AzureAD/microsoft-authentication-library-for-js/blob/dev/contributing.md) file for more information.
 
 ## Installation
 
@@ -93,6 +95,8 @@ Documentation specifically for MSAL Angular v1 can be found [here](https://githu
 - [Angular v16](https://github.com/AzureAD/microsoft-authentication-library-for-js/tree/dev/samples/msal-angular-v3-samples/angular16-sample-app)
 - [Angular v16 B2C Sample](https://github.com/AzureAD/microsoft-authentication-library-for-js/tree/dev/samples/msal-angular-v3-samples/angular-b2c-sample-app)
 - [Angular Standalone Sample](https://github.com/AzureAD/microsoft-authentication-library-for-js/tree/dev/samples/msal-angular-v3-samples/angular-standalone-sample)
+- [Angular v17 Standalone Sample](https://github.com/AzureAD/microsoft-authentication-library-for-js/tree/dev/samples/msal-angular-v3-samples/angular17-standalone-sample)
+- [Angular v18 Standalone Sample](https://github.com/AzureAD/microsoft-authentication-library-for-js/tree/dev/samples/msal-angular-v3-samples/angular18-standalone-sample)
 
 ### MSAL Angular v2 Samples
 
@@ -125,17 +129,42 @@ See [here](https://github.com/AzureAD/microsoft-authentication-library-for-js/tr
 
 ## Build and running tests
 
-If you want to build the library and run all the unit tests, you can do the following.
+See the [`contributing.md`](https://github.com/AzureAD/microsoft-authentication-library-for-js/blob/dev/contributing.md) file for more information.
 
-First navigate to the root directory of the library(msal-angular) and install the dependencies:
+### Building the package locally
 
-    npm install
+To build the `@azure/msal-angular` library, you can do the following:
 
-Then use the following command to build the library and run all the unit tests:
+```bash
+// Install dev dependencies from root of repo
+npm install
+// Change to the msal-angular package directory
+cd lib/msal-angular/
+// To run build only for angular package
+npm run build
+```
 
-    npm run build
+To build both the `@azure/msal-angular` library and `@azure/msal-browser` libraries, you can do the following:
 
-    npm run test
+```bash
+// Install dev dependencies from root of repo
+npm install
+// Change to the msal-angular package directory
+cd lib/msal-angular/
+// To run build for angular and browser packages
+npm run build:all
+```
+
+### Running Tests
+
+`@azure/msal-angular` uses [jest](https://jestjs.io/) to run unit tests and coverage.
+
+```bash
+// To run tests
+npm run test
+// To run tests with code coverage
+npm run test:coverage
+```
 
 ## Versioning
 
@@ -146,7 +175,7 @@ This library controls how users sign-in and access services. We recommend you al
 - [Msal Browser FAQ](https://github.com/AzureAD/microsoft-authentication-library-for-js/blob/dev/lib/msal-browser/FAQ.md) for access to our frequently asked questions
 - [Stack Overflow](http://stackoverflow.com/questions/tagged/msal) using tag "msal".
   We highly recommend you ask your questions on Stack Overflow first and browse existing issues to see if someone has asked your question before.
-- [GitHub Issues](https://github.com/AzureAD/microsoft-authentication-library-for-js/issues/templates/edit) for reporting a bug or feature requests
+- [GitHub Issues](https://github.com/AzureAD/microsoft-authentication-library-for-js/issues/new/choose) for reporting a bug or feature requests
 - [User Voice page](https://feedback.azure.com/forums/169401-azure-active-directory) to provide recommendations and/or feedback
 
 ## Contribute

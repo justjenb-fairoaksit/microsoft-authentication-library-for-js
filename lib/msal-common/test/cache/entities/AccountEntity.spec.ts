@@ -1,13 +1,12 @@
-import { AccountEntity } from "../../../src/cache/entities/AccountEntity";
-import { mockAccountEntity, mockIdTokenEntity } from "./cacheConstants";
-import * as AuthToken from "../../../src/account/AuthToken";
-import { AuthorityFactory } from "../../../src/authority/AuthorityFactory";
-import { CacheAccountType, Constants } from "../../../src/utils/Constants";
+import { AccountEntity } from "../../../src/cache/entities/AccountEntity.js";
+import { mockAccountEntity, mockIdTokenEntity } from "./cacheConstants.js";
+import * as AuthToken from "../../../src/account/AuthToken.js";
+import { CacheAccountType, Constants } from "../../../src/utils/Constants.js";
 import {
     NetworkRequestOptions,
     INetworkModule,
-} from "../../../src/network/INetworkModule";
-import { ICrypto } from "../../../src/crypto/ICrypto";
+} from "../../../src/network/INetworkModule.js";
+import { ICrypto } from "../../../src/crypto/ICrypto.js";
 import {
     RANDOM_TEST_GUID,
     TEST_DATA_CLIENT_INFO,
@@ -18,16 +17,19 @@ import {
     TEST_CRYPTO_VALUES,
     ID_TOKEN_CLAIMS,
     GUEST_ID_TOKEN_CLAIMS,
-} from "../../test_kit/StringConstants";
-import sinon from "sinon";
-import { MockStorageClass, mockCrypto } from "../../client/ClientTestUtils";
-import { AccountInfo, TenantProfile } from "../../../src/account/AccountInfo";
-import { AuthorityOptions } from "../../../src/authority/AuthorityOptions";
-import { ProtocolMode } from "../../../src/authority/ProtocolMode";
-import { LogLevel, Logger } from "../../../src/logger/Logger";
-import { Authority } from "../../../src/authority/Authority";
-import { AuthorityType } from "../../../src/authority/AuthorityType";
-import { TokenClaims } from "../../../src";
+    TEST_CONFIG,
+} from "../../test_kit/StringConstants.js";
+import { MockStorageClass, mockCrypto } from "../../client/ClientTestUtils.js";
+import {
+    AccountInfo,
+    TenantProfile,
+} from "../../../src/account/AccountInfo.js";
+import { AuthorityOptions } from "../../../src/authority/AuthorityOptions.js";
+import { ProtocolMode } from "../../../src/authority/ProtocolMode.js";
+import { LogLevel, Logger } from "../../../src/logger/Logger.js";
+import { Authority } from "../../../src/authority/Authority.js";
+import { AuthorityType } from "../../../src/authority/AuthorityType.js";
+import { TokenClaims } from "../../../src/index.js";
 import { buildAccountFromIdTokenClaims } from "msal-test-utils";
 
 const cryptoInterface: ICrypto = {
@@ -54,6 +56,22 @@ const cryptoInterface: ICrypto = {
                 return "dWlk";
             case "utid":
                 return "dXRpZA==";
+            default:
+                return input;
+        }
+    },
+    base64UrlEncode(input: string): string {
+        switch (input) {
+            case '{"kid": "XnsuAvttTPp0nn1K_YMLePLDbp7syCKhNHt7HjYHJYc"}':
+                return "eyJraWQiOiAiWG5zdUF2dHRUUHAwbm4xS19ZTUxlUExEYnA3c3lDS2hOSHQ3SGpZSEpZYyJ9";
+            default:
+                return input;
+        }
+    },
+    encodeKid(input: string): string {
+        switch (input) {
+            case "XnsuAvttTPp0nn1K_YMLePLDbp7syCKhNHt7HjYHJYc":
+                return "eyJraWQiOiAiWG5zdUF2dHRUUHAwbm4xS19ZTUxlUExEYnA3c3lDS2hOSHQ3SGpZSEpZYyJ9";
             default:
                 return input;
         }
@@ -104,23 +122,24 @@ const loggerOptions = {
 };
 const logger = new Logger(loggerOptions);
 
-const authority = AuthorityFactory.createInstance(
+const authority = new Authority(
     Constants.DEFAULT_AUTHORITY,
     networkInterface,
     new MockStorageClass("client-id", mockCrypto, logger),
     authorityOptions,
-    logger
+    logger,
+    TEST_CONFIG.CORRELATION_ID
 );
 
 describe("AccountEntity.ts Unit Tests", () => {
     beforeEach(() => {
-        sinon
-            .stub(Authority.prototype, "getPreferredCache")
-            .returns("login.windows.net");
+        jest.spyOn(Authority.prototype, "getPreferredCache").mockReturnValue(
+            "login.windows.net"
+        );
     });
 
     afterEach(() => {
-        sinon.restore();
+        jest.restoreAllMocks();
     });
 
     it("Verify an AccountEntity", () => {
@@ -254,12 +273,13 @@ describe("AccountEntity.ts Unit Tests", () => {
     });
 
     it("create an Account no preferred_username or emails claim", () => {
-        const authority = AuthorityFactory.createInstance(
+        const authority = new Authority(
             Constants.DEFAULT_AUTHORITY,
             networkInterface,
             new MockStorageClass("client-id", mockCrypto, logger),
             authorityOptions,
-            logger
+            logger,
+            TEST_CONFIG.CORRELATION_ID
         );
 
         // Set up stubs
@@ -301,7 +321,7 @@ describe("AccountEntity.ts Unit Tests", () => {
     });
 
     it("creates a generic account", () => {
-        const authority = AuthorityFactory.createInstance(
+        const authority = new Authority(
             Constants.DEFAULT_AUTHORITY,
             networkInterface,
             new MockStorageClass("client-id", mockCrypto, logger),
@@ -311,7 +331,8 @@ describe("AccountEntity.ts Unit Tests", () => {
                 cloudDiscoveryMetadata: "",
                 authorityMetadata: "",
             },
-            logger
+            logger,
+            TEST_CONFIG.CORRELATION_ID
         );
 
         // Set up stubs
@@ -325,7 +346,9 @@ describe("AccountEntity.ts Unit Tests", () => {
             nonce: "123523",
             upn: "testupn",
         };
-        sinon.stub(AuthToken, "extractTokenClaims").returns(idTokenClaims);
+        jest.spyOn(AuthToken, "extractTokenClaims").mockReturnValue(
+            idTokenClaims
+        );
 
         const homeAccountId =
             "AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ".toLowerCase();
@@ -377,7 +400,7 @@ describe("AccountEntity.ts Unit Tests", () => {
         expect(accountInfo.tenantProfiles).toMatchObject(tenantProfiles);
     });
 
-    it("getAccountInfo creates a new tenantProfiles map if AccountEntity doesn't have a tenantProfiles array", () => {
+    it("getAccountInfo creates a new tenantProfiles map if AccountEntity does not have a tenantProfiles array", () => {
         const accountEntity = buildAccountFromIdTokenClaims(ID_TOKEN_CLAIMS);
         accountEntity.tenantProfiles = undefined;
 
@@ -389,7 +412,7 @@ describe("AccountEntity.ts Unit Tests", () => {
         );
     });
 
-    it("isSingleTenant returns true if AccountEntity doesn't have a tenantProfiles array", () => {
+    it("isSingleTenant returns true if AccountEntity does not have a tenantProfiles array", () => {
         const accountEntity = buildAccountFromIdTokenClaims(ID_TOKEN_CLAIMS);
         accountEntity.tenantProfiles = undefined;
 
@@ -619,13 +642,9 @@ describe("AccountEntity.ts Unit Tests", () => {
 
 describe("AccountEntity.ts Unit Tests for ADFS", () => {
     beforeEach(() => {
-        sinon
-            .stub(Authority.prototype, "getPreferredCache")
-            .returns("myadfs.com");
-    });
-
-    afterEach(() => {
-        sinon.restore();
+        jest.spyOn(Authority.prototype, "getPreferredCache").mockReturnValue(
+            "myadfs.com"
+        );
     });
 
     it("creates a generic ADFS account", () => {
@@ -635,12 +654,13 @@ describe("AccountEntity.ts Unit Tests for ADFS", () => {
             cloudDiscoveryMetadata: "",
             authorityMetadata: "",
         };
-        const authority = AuthorityFactory.createInstance(
+        const authority = new Authority(
             "https://myadfs.com/adfs",
             networkInterface,
             new MockStorageClass("client-id", mockCrypto, logger),
             authorityOptions,
-            logger
+            logger,
+            TEST_CONFIG.CORRELATION_ID
         );
 
         // Set up stubs
@@ -654,7 +674,9 @@ describe("AccountEntity.ts Unit Tests for ADFS", () => {
             nonce: "123523",
             upn: "testupn",
         };
-        sinon.stub(AuthToken, "extractTokenClaims").returns(idTokenClaims);
+        jest.spyOn(AuthToken, "extractTokenClaims").mockReturnValue(
+            idTokenClaims
+        );
 
         const homeAccountId =
             "AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ".toLowerCase();
@@ -688,12 +710,13 @@ describe("AccountEntity.ts Unit Tests for ADFS", () => {
             cloudDiscoveryMetadata: "",
             authorityMetadata: "",
         };
-        const authority = AuthorityFactory.createInstance(
+        const authority = new Authority(
             "https://myadfs.com/adfs",
             networkInterface,
             new MockStorageClass("client-id", mockCrypto, logger),
             authorityOptions,
-            logger
+            logger,
+            TEST_CONFIG.CORRELATION_ID
         );
 
         // Set up stubs
@@ -706,7 +729,9 @@ describe("AccountEntity.ts Unit Tests for ADFS", () => {
             nonce: "123523",
             upn: "testupn",
         };
-        sinon.stub(AuthToken, "extractTokenClaims").returns(idTokenClaims);
+        jest.spyOn(AuthToken, "extractTokenClaims").mockReturnValue(
+            idTokenClaims
+        );
 
         const homeAccountId =
             "AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ".toLowerCase();

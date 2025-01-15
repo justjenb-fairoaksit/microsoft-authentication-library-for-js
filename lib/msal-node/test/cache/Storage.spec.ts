@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License.
+ */
+
 import {
     LogLevel,
     Logger,
@@ -7,19 +12,20 @@ import {
     AccessTokenEntity,
     IdTokenEntity,
     RefreshTokenEntity,
+    CacheHelpers,
 } from "@azure/msal-common";
 import {
     JsonCache,
     InMemoryCache,
-} from "./../../src/cache/serializer/SerializerTypes";
-import { Deserializer } from "./../../src/cache/serializer/Deserializer";
-import { NodeStorage } from "../../src/cache/NodeStorage";
+} from "./../../src/cache/serializer/SerializerTypes.js";
+import { Deserializer } from "./../../src/cache/serializer/Deserializer.js";
+import { NodeStorage } from "../../src/cache/NodeStorage.js";
 import { version, name } from "../../package.json";
 import {
     DEFAULT_CRYPTO_IMPLEMENTATION,
     DEFAULT_OPENID_CONFIG_RESPONSE,
     TEST_CONSTANTS,
-} from "../utils/TestConstants";
+} from "../utils/TestConstants.js";
 
 const cacheJson = require("./serializer/cache.json");
 const clientId = TEST_CONSTANTS.CLIENT_ID;
@@ -135,7 +141,7 @@ describe("Storage tests for msal-node: ", () => {
         expect(account).toEqual(fetchedAccount);
     });
 
-    it("setAccount() and getAccount() tests", () => {
+    it("setAccount() and getAccount() tests", async () => {
         const nodeStorage = new NodeStorage(
             logger,
             clientId,
@@ -174,63 +180,10 @@ describe("Storage tests for msal-node: ", () => {
             mockAccountData
         );
         expect(mockAccountEntity).toBeInstanceOf(AccountEntity);
-        nodeStorage.setAccount(mockAccountEntity);
+        await nodeStorage.setAccount(mockAccountEntity);
         expect(
             nodeStorage.getAccount(mockAccountEntity.generateAccountKey())
         ).toEqual(mockAccountEntity);
-    });
-
-    it("getAccount() updates an outdated (single-tenant) account cache entry", () => {
-        const nodeStorage = new NodeStorage(
-            logger,
-            clientId,
-            DEFAULT_CRYPTO_IMPLEMENTATION
-        );
-        nodeStorage.setInMemoryCache(inMemoryCache);
-        const outdatedAccountKey = "uid.utid3-login.microsoftonline.com-utid3";
-
-        const outdatedAccountData = {
-            username: "janedoe@microsoft.com",
-            name: "Jane Doe",
-            localAccountId: "uid",
-            realm: "utid3",
-            environment: "login.microsoftonline.com",
-            homeAccountId: "uid.utid3",
-            authorityType: "MSSTS",
-            clientInfo: "eyJ1aWQiOiJ1aWQxIiwgInV0aWQiOiJ1dGlkMSJ9",
-        };
-
-        let outdatedMockAccountEntity = CacheManager.toObject(
-            new AccountEntity(),
-            outdatedAccountData
-        );
-
-        let updatedMockAccountEntity = CacheManager.toObject(
-            new AccountEntity(),
-            {
-                ...outdatedAccountData,
-                tenantProfiles: [
-                    {
-                        tenantId: "utid3",
-                        localAccountId: "uid",
-                        name: "Jane Doe",
-                        isHomeTenant: true,
-                    },
-                ],
-            }
-        );
-        const updatedAccountKey = updatedMockAccountEntity.generateAccountKey();
-        expect(outdatedMockAccountEntity).toBeInstanceOf(AccountEntity);
-        // Set an outdated account
-        nodeStorage.setAccount(outdatedMockAccountEntity);
-        expect(nodeStorage.getItem(outdatedAccountKey)).toEqual(
-            outdatedAccountData
-        );
-
-        // Get account should update and return updated account
-        expect(nodeStorage.getAccount(updatedAccountKey)).toEqual(
-            updatedMockAccountEntity
-        );
     });
 
     it("setCache() and getCache() tests - tests for an accessToken", () => {
@@ -264,7 +217,7 @@ describe("Storage tests for msal-node: ", () => {
         expect(readCache[accessTokenKey]).toEqual(accessToken);
     });
 
-    it("setAccessTokenCredential() and getAccessTokenCredential() tests", () => {
+    it("setAccessTokenCredential() and getAccessTokenCredential() tests", async () => {
         const nodeStorage = new NodeStorage(
             logger,
             clientId,
@@ -288,7 +241,7 @@ describe("Storage tests for msal-node: ", () => {
             extendedExpiresOn: "4600",
         };
 
-        nodeStorage.setAccessTokenCredential(accessToken);
+        await nodeStorage.setAccessTokenCredential(accessToken);
         const fetchedAccessToken =
             nodeStorage.getAccessTokenCredential(accessTokenKey);
         const invalidAccessToken = nodeStorage.getAccessTokenCredential(
@@ -299,7 +252,7 @@ describe("Storage tests for msal-node: ", () => {
         expect(invalidAccessToken).toBeNull();
     });
 
-    it("setIdTokenCredential() and getIdTokenCredential() tests", () => {
+    it("setIdTokenCredential() and getIdTokenCredential() tests", async () => {
         const nodeStorage = new NodeStorage(
             logger,
             clientId,
@@ -319,7 +272,7 @@ describe("Storage tests for msal-node: ", () => {
             realm: "samplerealm",
         };
 
-        nodeStorage.setIdTokenCredential(idToken);
+        await nodeStorage.setIdTokenCredential(idToken);
 
         const fetchedIdToken = nodeStorage.getIdTokenCredential(idTokenKey);
         const invalidIdToken =
@@ -329,7 +282,7 @@ describe("Storage tests for msal-node: ", () => {
         expect(invalidIdToken).toBeNull();
     });
 
-    it("setRefreshTokenCredential() and getRefreshTokenCredential() tests", () => {
+    it("setRefreshTokenCredential() and getRefreshTokenCredential() tests", async () => {
         const nodeStorage = new NodeStorage(
             logger,
             clientId,
@@ -349,7 +302,7 @@ describe("Storage tests for msal-node: ", () => {
             realm: "samplerealm",
         };
 
-        nodeStorage.setRefreshTokenCredential(refreshToken);
+        await nodeStorage.setRefreshTokenCredential(refreshToken);
 
         const fetchedRefreshToken =
             nodeStorage.getRefreshTokenCredential(refreshTokenKey);
@@ -421,22 +374,23 @@ describe("Storage tests for msal-node: ", () => {
         describe("AuthorityMetadata", () => {
             const host = "login.microsoftonline.com";
             const key = `authority-metadata-${clientId}-${host}`;
-            const testObj: AuthorityMetadataEntity =
-                new AuthorityMetadataEntity();
-            testObj.aliases = [host];
-            testObj.preferred_cache = host;
-            testObj.preferred_network = host;
-            testObj.canonical_authority = TEST_CONSTANTS.DEFAULT_AUTHORITY;
-            testObj.authorization_endpoint =
-                DEFAULT_OPENID_CONFIG_RESPONSE.body.authorization_endpoint;
-            testObj.token_endpoint =
-                DEFAULT_OPENID_CONFIG_RESPONSE.body.token_endpoint;
-            testObj.end_session_endpoint =
-                DEFAULT_OPENID_CONFIG_RESPONSE.body.end_session_endpoint;
-            testObj.issuer = DEFAULT_OPENID_CONFIG_RESPONSE.body.issuer;
-            testObj.jwks_uri = DEFAULT_OPENID_CONFIG_RESPONSE.body.jwks_uri;
-            testObj.aliasesFromNetwork = false;
-            testObj.endpointsFromNetwork = false;
+            const testObj: AuthorityMetadataEntity = {
+                aliases: [host],
+                preferred_cache: host,
+                preferred_network: host,
+                canonical_authority: TEST_CONSTANTS.DEFAULT_AUTHORITY,
+                authorization_endpoint:
+                    DEFAULT_OPENID_CONFIG_RESPONSE.body.authorization_endpoint,
+                token_endpoint:
+                    DEFAULT_OPENID_CONFIG_RESPONSE.body.token_endpoint,
+                end_session_endpoint:
+                    DEFAULT_OPENID_CONFIG_RESPONSE.body.end_session_endpoint,
+                issuer: DEFAULT_OPENID_CONFIG_RESPONSE.body.issuer,
+                jwks_uri: DEFAULT_OPENID_CONFIG_RESPONSE.body.jwks_uri,
+                aliasesFromNetwork: false,
+                endpointsFromNetwork: false,
+                expiresAt: CacheHelpers.generateAuthorityMetadataExpiresAt(),
+            };
 
             it("getAuthorityMetadata() returns null if key is not in cache", () => {
                 const nodeStorage = new NodeStorage(
